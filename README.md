@@ -39,10 +39,6 @@ Frontend (Próximamente)
 🛠️ Instalación ---------------------------------------------------------------
 Backend
 
-# Clonar el repositorio
-git clone https://github.com/JaviGarciaGavin/ConductorHub.git
-cd ConductorHub
-
 # Instalar dependencias
 composer install
 
