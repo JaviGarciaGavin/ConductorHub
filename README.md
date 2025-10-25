@@ -1,7 +1,6 @@
 ConductorHub
 
-Sistema de gestión de incidencias para equipos de desarrollo.
-📁 Estructura del Proyecto
+📁 Estructura del Proyecto(No soy capaz de que esto quede como un arbol como dios manda)
 
 ConductorHub/
 ├── config/                 # Configuraciones Symfony
