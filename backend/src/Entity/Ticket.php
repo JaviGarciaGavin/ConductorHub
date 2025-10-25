@@ -54,10 +54,6 @@ class Ticket
 
     #[ORM\ManyToOne(inversedBy: 'tickets')]
     #[ORM\JoinColumn(nullable: false)]
-    private ?Project $projectMembers = null;
-
-    #[ORM\ManyToOne(inversedBy: 'tickets')]
-    #[ORM\JoinColumn(nullable: false)]
     private ?Project $project = null;
 
     public function __construct()
@@ -204,18 +200,6 @@ class Ticket
                 $comment->setTicket(null);
             }
         }
-
-        return $this;
-    }
-
-    public function getProjectMembers(): ?Project
-    {
-        return $this->projectMembers;
-    }
-
-    public function setProjectMembers(?Project $projectMembers): static
-    {
-        $this->projectMembers = $projectMembers;
 
         return $this;
     }
