@@ -17,6 +17,11 @@ ConductorHub/
 └── composer.json          # Dependencias PHP
 
 🛠️ Tecnologías
+
+https://img.shields.io/badge/Symfony-6.3-000000?style=for-the-badge&logo=symfony
+https://img.shields.io/badge/API%2520Platform-3.2-6DA252?style=for-the-badge&logo=api-platform
+https://img.shields.io/badge/MySQL-8.0-4479A1?style=for-the-badge&logo=mysql
+
 Backend
 
     Symfony 6.3
