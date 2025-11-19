@@ -25,8 +25,6 @@ Backend
 
     MySQL 8.0
 
-    JWT Authentication
-
 Frontend (Próximamente)
 
     React 18+
