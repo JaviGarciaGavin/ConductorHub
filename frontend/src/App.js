@@ -11,9 +11,7 @@ function App() {
   const [user, setUser] = useState(null);
 
   // Simulación de base de datos
-  const [users, setUsers] = useState([
-    { id: 1, name: 'Usuario Demo', email: 'demo@conductorhub.com', password: '123456' }
-  ]);
+  const [users, setUsers] = useState([]);
 
   const handleLogin = (userData) => {
     setIsLoggedIn(true);
