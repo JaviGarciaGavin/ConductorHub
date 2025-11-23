@@ -7,10 +7,12 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use ApiPlatform\Metadata\ApiResource;
+use Symfony\Component\Security\Core\User\UserInterface;
+use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 
 #[ApiResource]
 #[ORM\Entity(repositoryClass: UserRepository::class)]
-class User
+class User implements UserInterface, PasswordAuthenticatedUserInterface
 {
     // CONSTANTES DE ROLES FIJOS
     public const ROLE_SUPER_ADMIN = 'ROLE_SUPER_ADMIN';
@@ -218,6 +220,22 @@ class User
     public function canCreateTickets(): bool
     {
         return !$this->isViewer();
+    }
+
+    public function getUserIdentifier(): string
+    {
+    return (string) $this->email;
+    }
+    
+    public function eraseCredentials(): void
+    {
+
+    }
+
+// Para compatibilidad (opcional pero recomendado)
+public function getUsername(): string
+    {
+    return $this->getUserIdentifier();
     }
 
     /**
