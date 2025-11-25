@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
+import bcrypt from 'bcryptjs';
 import './login.css';
 
 const Login = ({ onLogin, onNavigate }) => {
-  const [email, setEmail] = useState('jgarciagavin70@gmail.com');
-  const [password, setPassword] = useState('Patata420');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -13,7 +14,7 @@ const Login = ({ onLogin, onNavigate }) => {
     setError('');
 
     try {
-      console.log('🔍 Buscando usuario:', email);
+      console.log('Buscando usuario:', email);
       
       // Obtener TODOS los usuarios
       const response = await fetch('http://localhost:8000/api/users');
@@ -23,33 +24,35 @@ const Login = ({ onLogin, onNavigate }) => {
       }
       
       const data = await response.json();
-      console.log('📦 Datos recibidos:', data);
+      console.log('Datos recibidos:', data);
       
-      // ✅ CORREGIDO: Usar "member" en lugar de "hydra:member"
       const users = data.member || data['hydra:member'] || [];
-      console.log('👥 Usuarios encontrados:', users);
-      console.log('📧 Emails disponibles:', users.map(u => u.email));
+      console.log('Usuarios encontrados:', users.length);
       
       const user = users.find(u => u.email === email);
-      console.log('🎯 Usuario encontrado:', user);
+      console.log('Usuario encontrado:', user ? user.email : 'NO');
       
       if (user) {
-        console.log('🔑 Verificando contraseña...');
+        console.log('Verificando contraseña...');
+        console.log('Hash en BD:', user.password);
         
-        if (user.password === password) {
-          console.log('✅ Login exitoso!');
+        // CORREGIDO - usar bcrypt.compare()
+        const isPasswordValid = await bcrypt.compare(password, user.password);
+        
+        if (isPasswordValid) {
+          console.log('Login exitoso!');
           onLogin(user);
         } else {
-          console.log('❌ Contraseña incorrecta');
+          console.log('Contraseña incorrecta');
           setError('Contraseña incorrecta');
         }
       } else {
-        console.log('❌ Usuario no encontrado');
+        console.log('Usuario no encontrado');
         setError('Usuario no encontrado');
       }
       
     } catch (error) {
-      console.error('💥 Error:', error);
+      console.error('Error:', error);
       setError('Error de conexión: ' + error.message);
     } finally {
       setLoading(false);
@@ -92,7 +95,7 @@ const Login = ({ onLogin, onNavigate }) => {
           </div>
           
           <button type="submit" className="submit-button" disabled={loading}>
-            {loading ? '🔍 Verificando...' : 'Iniciar Sesión'}
+            {loading ? 'Verificando...' : 'Iniciar Sesión'}
           </button>
           
           <div className="auth-link">
@@ -104,13 +107,6 @@ const Login = ({ onLogin, onNavigate }) => {
             >
               Regístrate aquí
             </button>
-          </div>
-
-          <div className="demo-credentials">
-            <p><strong>Usuarios de prueba:</strong></p>
-            <p>test@conductorhub.com / password123</p>
-            <p>jgarciagavin70@gmail.com / Patata420</p>
-            <p>pepe@gmail.com / pepe420</p>
           </div>
         </form>
       </div>

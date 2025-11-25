@@ -12,7 +12,6 @@ export const authService = {
       const saltRounds = 12;
       const hashedPassword = await bcrypt.hash(userData.password, saltRounds);
       
-      // ✅ Estructura correcta para API Platform
       const userPayload = {
         email: userData.email,
         password: hashedPassword, // ← YA HASHEDA
