@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { authService } from '../../services/authService';
 import './register.css';
 
-const Register = ({ onRegister, onNavigate }) => {
+const Register = ({ onRegister }) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -35,7 +37,7 @@ const Register = ({ onRegister, onNavigate }) => {
       <div className="auth-card">
         <button 
           className="back-button"
-          onClick={() => onNavigate('landing')}
+          onClick={() => navigate('/')}
         >
           ← Volver
         </button>
@@ -93,7 +95,7 @@ const Register = ({ onRegister, onNavigate }) => {
             <button 
               type="button"
               className="link-button"
-              onClick={() => onNavigate('login')}
+              onClick={() => navigate('/login')}
             >
               Inicia sesión aquí
             </button>

@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import bcrypt from 'bcryptjs';
 import './login.css';
 
-const Login = ({ onLogin, onNavigate }) => {
+const Login = ({ onLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -62,7 +64,7 @@ const Login = ({ onLogin, onNavigate }) => {
   return (
     <div className="auth-container">
       <div className="auth-card">
-        <button className="back-button" onClick={() => onNavigate('landing')}>
+        <button className="back-button" onClick={() => navigate('/')}>
           ← Volver
         </button>
         <h2 className="auth-title">Iniciar Sesión</h2>
@@ -103,7 +105,7 @@ const Login = ({ onLogin, onNavigate }) => {
             <button 
               type="button"
               className="link-button"
-              onClick={() => onNavigate('register')}
+              onClick={() => navigate('/register')}
             >
               Regístrate aquí
             </button>

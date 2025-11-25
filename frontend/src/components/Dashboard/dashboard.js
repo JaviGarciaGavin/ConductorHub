@@ -1,11 +1,13 @@
 // src/components/Dashboard/dashboard.js
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './dashboard.css';
 
 const Dashboard = ({ user, onLogout }) => {
+  const navigate = useNavigate();
   const [showCreateProject, setShowCreateProject] = useState(false);
   const [projects, setProjects] = useState([]);
-  const [projectTickets, setProjectTickets] = useState({}); // { projectId: {tickets: [], counts: {}} }
+  const [projectTickets, setProjectTickets] = useState({});
   const [loading, setLoading] = useState(false);
   const [newProject, setNewProject] = useState({
     name: '',
@@ -36,28 +38,28 @@ const Dashboard = ({ user, onLogout }) => {
         
         let projectsArray = [];
         
-        if (data.member) {
-          projectsArray = data.member;
-        } else if (data['hydra:member']) {
+        if (data['hydra:member']) {
           projectsArray = data['hydra:member'];
+        } else if (data.member) {
+          projectsArray = data.member;
         } else if (Array.isArray(data)) {
           projectsArray = data;
         }
         
-        // Filtrar proyectos del usuario actual
-        const userProjects = projectsArray.filter(project => 
-          (project.userOwner && project.userOwner.id === user.id) ||
-          (typeof project.userOwner === 'string' && project.userOwner.includes(`/api/users/${user.id}`))
-        );
+        // Filtrar proyectos del usuario actual usando el IRI
+        const userProjects = projectsArray.filter(project => {
+          const ownerIri = project.userOwner;
+          return typeof ownerIri === 'string' 
+            ? ownerIri.includes(`/api/users/${user.id}`)
+            : (ownerIri && ownerIri.id === user.id);
+        });
         
         setProjects(userProjects);
         
-        // Cargar tickets para cada proyecto
-        userProjects.forEach(project => {
-          fetchProjectTickets(project.id);
-        });
+        // Cargar TODOS los tickets una sola vez y distribuirlos por proyecto
+        await fetchAllTicketsAndDistribute(userProjects);
       } else {
-        console.error('Error al cargar proyectos');
+        console.error('Error al cargar proyectos:', response.status);
         setProjects([]);
       }
     } catch (error) {
@@ -68,10 +70,10 @@ const Dashboard = ({ user, onLogout }) => {
     }
   };
 
-  // Función para cargar tickets de un proyecto
-  const fetchProjectTickets = async (projectId) => {
+  // NUEVA FUNCIÓN: Cargar todos los tickets y distribuirlos por proyecto
+  const fetchAllTicketsAndDistribute = async (userProjects) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/tickets?project.id=${projectId}`, {
+      const response = await fetch('http://localhost:8000/api/tickets', {
         headers: {
           'Accept': 'application/ld+json',
         }
@@ -79,22 +81,67 @@ const Dashboard = ({ user, onLogout }) => {
       
       if (response.ok) {
         const data = await response.json();
-        const ticketsArray = data.member || data['hydra:member'] || data || [];
-        const tickets = Array.isArray(ticketsArray) ? ticketsArray : [];
+        const allTickets = data['hydra:member'] || data.member || data || [];
         
-        // Contar tickets por prioridad
-        const counts = tickets.reduce((acc, ticket) => {
-          acc[ticket.priority] = (acc[ticket.priority] || 0) + 1;
-          return acc;
-        }, { low: 0, medium: 0, high: 0, urgent: 0 });
+        console.log('Todos los tickets cargados:', allTickets); // Para debug
         
-        setProjectTickets(prev => ({
-          ...prev,
-          [projectId]: { tickets, counts }
-        }));
+        // Crear un objeto para almacenar tickets por proyecto
+        const ticketsByProject = {};
+        
+        // Inicializar todos los proyectos con arrays vacíos
+        userProjects.forEach(project => {
+          ticketsByProject[project.id] = [];
+        });
+        
+        // Distribuir tickets a sus proyectos correspondientes
+        allTickets.forEach(ticket => {
+          const ticketProject = ticket.project;
+          let projectId = null;
+          
+          // Extraer el projectId del ticket
+          if (typeof ticketProject === 'string') {
+            // Si es un IRI como "/api/projects/1"
+            const match = ticketProject.match(/\/api\/projects\/(\d+)/);
+            if (match) {
+              projectId = parseInt(match[1]);
+            }
+          } else if (ticketProject && ticketProject.id) {
+            // Si es un objeto con id
+            projectId = ticketProject.id;
+          }
+          
+          // Si encontramos un projectId válido y el proyecto existe en userProjects
+          if (projectId && ticketsByProject[projectId] !== undefined) {
+            ticketsByProject[projectId].push(ticket);
+          }
+        });
+        
+        console.log('Tickets distribuidos por proyecto:', ticketsByProject); // Para debug
+        
+        // Actualizar el estado con los tickets distribuidos
+        Object.keys(ticketsByProject).forEach(projectId => {
+          const tickets = ticketsByProject[projectId];
+          const counts = tickets.reduce((acc, ticket) => {
+            const priority = ticket.priority || 'low';
+            acc[priority] = (acc[priority] || 0) + 1;
+            return acc;
+          }, { low: 0, medium: 0, high: 0, urgent: 0 });
+          
+          setProjectTickets(prev => ({
+            ...prev,
+            [projectId]: { tickets, counts }
+          }));
+        });
       }
     } catch (error) {
-      console.error('Error cargando tickets:', error);
+      console.error('Error cargando todos los tickets:', error);
+      // Inicializar todos los proyectos con contadores en 0
+      userProjects.forEach(project => {
+        setProjectTickets(prev => ({
+          ...prev,
+          [project.id]: { tickets: [], counts: { low: 0, medium: 0, high: 0, urgent: 0 } }
+        }));
+      });
     }
   };
 
@@ -155,6 +202,9 @@ const Dashboard = ({ user, onLogout }) => {
         setNewProject({ name: '', description: '' });
         setShowCreateProject(false);
         alert('Proyecto creado exitosamente!');
+        
+        // Recargar los tickets para incluir el nuevo proyecto
+        fetchUserProjects();
       } else {
         const errorData = await response.json();
         alert('Error al crear el proyecto: ' + (errorData.detail || 'Inténtalo de nuevo'));
@@ -226,21 +276,19 @@ const Dashboard = ({ user, onLogout }) => {
                     <h3>{project.name}</h3>
                     <div className="tickets-counter">
                       {Object.entries(priorityConfig).map(([priority, config]) => (
-                        counts[priority] > 0 && (
-                          <div 
-                            key={priority} 
-                            className="priority-counter"
-                            style={{ borderColor: config.color }}
-                            title={`${config.label}: ${counts[priority]} tickets`}
-                          >
-                            <span className="priority-icon" style={{ color: config.color }}>
-                              {config.icon}
-                            </span>
-                            <span className="priority-count">
-                              {counts[priority]}
-                            </span>
-                          </div>
-                        )
+                        <div 
+                          key={priority} 
+                          className="priority-counter"
+                          style={{ borderColor: config.color }}
+                          title={`${config.label}: ${counts[priority]} tickets`}
+                        >
+                          <span className="priority-icon" style={{ color: config.color }}>
+                            {config.icon}
+                          </span>
+                          <span className="priority-count">
+                            {counts[priority]}
+                          </span>
+                        </div>
                       ))}
                     </div>
                   </div>
@@ -256,9 +304,12 @@ const Dashboard = ({ user, onLogout }) => {
                     </span>
                   </div>
                   
-                  <button className="project-btn">
-                    Abrir Proyecto
-                  </button>
+                  <button 
+                    className="project-btn"
+                    onClick={() => navigate(`/project/${project.id}`)}
+                  >
+                  Abrir Proyecto
+                </button>
                 </div>
               );
             })}

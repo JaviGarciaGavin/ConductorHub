@@ -1,7 +1,10 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import './landing.css';
 
-const Landing = ({ onNavigate }) => {
+const Landing = () => {
+  const navigate = useNavigate();
+
   return (
     <div className="landing">
       {/* Hero Section */}
@@ -17,13 +20,13 @@ const Landing = ({ onNavigate }) => {
                 <div className="button-group d-flex gap-3 flex-wrap justify-content-center justify-content-lg-start">
                   <button 
                     className="btn btn-primary btn-lg px-4 py-3 fw-semibold"
-                    onClick={() => onNavigate('login')}
+                    onClick={() => navigate('/login')}
                   >
                      Iniciar Sesión
                   </button>
                   <button 
                     className="btn btn-outline-light btn-lg px-4 py-3 fw-semibold"
-                    onClick={() => onNavigate('register')}
+                    onClick={() => navigate('/register')}
                   >
                      Crear Cuenta
                   </button>
@@ -216,13 +219,13 @@ const Landing = ({ onNavigate }) => {
             <div className="cta-buttons d-flex gap-3 justify-content-center flex-wrap">
               <button 
                 className="btn btn-primary btn-lg px-4 py-3 fw-semibold"
-                onClick={() => onNavigate('register')}
+                onClick={() => navigate('/register')}
               >
                 Comenzar Gratis
               </button>
               <button 
                 className="btn btn-outline-light btn-lg px-4 py-3 fw-semibold"
-                onClick={() => onNavigate('login')}
+                onClick={() => navigate('/login')}
               >
                 Acceder a mi Cuenta
               </button>
