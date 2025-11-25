@@ -1,15 +1,21 @@
+import bcrypt from 'bcryptjs';
+
 const API_URL = 'http://localhost:8000/api';
 
 export const authService = {
-  // Registro - con el content-type correcto para API Platform
+  // Registro - CON HASH EN FRONTEND
   async register(userData) {
     try {
       console.log('Registrando usuario:', userData);
       
-      // Estructura según tu entidad User
+      // HASHEAR LA CONTRASEÑA ANTES DE ENVIAR
+      const saltRounds = 12;
+      const hashedPassword = await bcrypt.hash(userData.password, saltRounds);
+      
+      // ✅ Estructura correcta para API Platform
       const userPayload = {
         email: userData.email,
-        password: userData.password,
+        password: hashedPassword, // ← YA HASHEDA
         name: userData.name,
         roles: ['ROLE_USER']
       };
@@ -17,7 +23,7 @@ export const authService = {
       const response = await fetch(`${API_URL}/users`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/ld+json', // ✅ Content-type correcto
+          'Content-Type': 'application/ld+json',
         },
         body: JSON.stringify(userPayload),
       });
@@ -36,15 +42,15 @@ export const authService = {
     }
   },
 
-  // Login - con content-type correcto
+  // Login - COMPARAR HASHES
   async login(email, password) {
     try {
-      console.log('Buscando usuario:', email);
+      console.log('Iniciando sesión:', email);
       
-      // Buscamos el usuario por email
+      // Buscar usuario por email
       const response = await fetch(`${API_URL}/users?email=${encodeURIComponent(email)}`, {
         headers: {
-          'Accept': 'application/ld+json', // ✅ Accept header correcto
+          'Accept': 'application/ld+json',
         },
       });
       
@@ -54,13 +60,14 @@ export const authService = {
       
       const data = await response.json();
       
-      // API Platform devuelve los resultados en hydra:member
       if (data['hydra:member'] && data['hydra:member'].length > 0) {
         const user = data['hydra:member'][0];
         console.log('Usuario encontrado:', user);
         
-        // Verificamos la contraseña
-        if (user.password === password) {
+        // VERIFICAR CONTRASEÑA CON BCRYPT
+        const isPasswordValid = await bcrypt.compare(password, user.password);
+        
+        if (isPasswordValid) {
           return user;
         } else {
           throw new Error('Contraseña incorrecta');
@@ -75,7 +82,6 @@ export const authService = {
     }
   },
 
-  // Método adicional: Obtener usuario por ID
   async getUserById(userId) {
     try {
       const response = await fetch(`${API_URL}/users/${userId}`, {
