@@ -38,7 +38,6 @@ const Login = ({ onLogin }) => {
         console.log('Verificando contraseña...');
         console.log('Hash en BD:', user.password);
         
-        // CORREGIDO - usar bcrypt.compare()
         const isPasswordValid = await bcrypt.compare(password, user.password);
         
         if (isPasswordValid) {

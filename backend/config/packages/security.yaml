@@ -17,25 +17,6 @@ security:
             stateless: true  
             json_login:
                 check_path: api_login
-    access_control:
-        # Permitir acceso público a la documentación de API
-        - { path: ^/api/docs, roles: PUBLIC_ACCESS }
-        - { path: ^/api/contexts, roles: PUBLIC_ACCESS }
-        
-        # Permitir registro y login públicos
-        - { path: ^/api/register, roles: PUBLIC_ACCESS }
-        - { path: ^/api/login, roles: PUBLIC_ACCESS }
-        
-        # Permitir listar usuarios y proyectos (para búsqueda y dashboard)
-        - { path: ^/api/users$, methods: [GET], roles: PUBLIC_ACCESS }
-        - { path: ^/api/projects$, methods: [GET], roles: PUBLIC_ACCESS }
-        
-        # Permitir Listar todos los tickets,  Listar miembros de proyecto 
-        - { path: ^/api/tickets$, methods: [GET], roles: PUBLIC_ACCESS }
-        - { path: ^/api/project_members$, methods: [GET], roles: PUBLIC_ACCESS }
-
-        # Proteger todas las demás rutas API
-        - { path: ^/api, roles: ROLE_USER }
 
 when@test:
     security:
