@@ -1,4 +1,3 @@
-// src/components/Dashboard/dashboard.js
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './dashboard.css';
@@ -14,10 +13,138 @@ const Dashboard = ({ user, onLogout }) => {
     description: ''
   });
 
+  // Estados para la campanita de notificaciones
+  const [notifications, setNotifications] = useState([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
+
   // Cargar proyectos del usuario al montar el componente
   useEffect(() => {
     fetchUserProjects();
+    fetchPendingInvitations();
   }, [user]);
+
+  // Cargar invitaciones pendientes
+  const fetchPendingInvitations = async () => {
+    if (!user?.email) return;
+    
+    try {
+      setLoadingNotifications(true);
+      console.log('🔍 Buscando invitaciones para:', user.email);
+      
+      const response = await fetch('http://localhost:8000/api/project_invitations', {
+        headers: {
+          'Accept': 'application/ld+json',
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('📊 DATA COMPLETA DE API:', data);
+        
+        // CORREGIDO: Usar data.member en lugar de data['hydra:member']
+        const allInvitations = data.member || data['hydra:member'] || [];
+        
+        console.log('📨 Todas las invitaciones:', allInvitations);
+        
+        // BUSCAR POR EMAIL
+        const userInvitations = allInvitations.filter(invitation => {
+          const matchesEmail = invitation.invitedEmail === user.email;
+          const isPending = invitation.status === 'pending';
+          
+          console.log(`🔍 Comparando: "${invitation.invitedEmail}" === "${user.email}" && status: ${invitation.status} → ${matchesEmail && isPending}`);
+          
+          return matchesEmail && isPending;
+        });
+        
+        console.log('✅ Invitaciones filtradas para', user.email, ':', userInvitations);
+        setNotifications(userInvitations);
+      } else {
+        console.log('❌ Error en la API:', response.status);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+    } finally {
+      setLoadingNotifications(false);
+    }
+  };
+
+  // Aceptar invitación
+  const handleAcceptInvitation = async (invitationId) => {
+    try {
+      // Primero obtenemos la invitación completa
+      const invitationResponse = await fetch(`http://localhost:8000/api/project_invitations/${invitationId}`, {
+        headers: {
+          'Accept': 'application/ld+json',
+        }
+      });
+      
+      if (!invitationResponse.ok) {
+        alert('Error al obtener la invitación');
+        return;
+      }
+      
+      const invitation = await invitationResponse.json();
+      
+      // Crear el ProjectMember
+      const memberResponse = await fetch('http://localhost:8000/api/project_members', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/ld+json',
+          'Accept': 'application/ld+json',
+        },
+        body: JSON.stringify({
+          user: `/api/users/${user.id}`,
+          project: invitation.project,
+          role: invitation.role || 'member',
+          joinedAt: new Date().toISOString()
+        })
+      });
+      
+      if (memberResponse.ok) {
+        // Actualizar la invitación a "accepted"
+        const updateResponse = await fetch(`http://localhost:8000/api/project_invitations/${invitationId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/ld+json',
+            'Accept': 'application/ld+json',
+          },
+          body: JSON.stringify({
+            ...invitation,
+            status: 'accepted',
+            acceptedAt: new Date().toISOString()
+          })
+        });
+        
+        if (updateResponse.ok) {
+          setNotifications(prev => prev.filter(inv => inv.id !== invitationId));
+          fetchUserProjects(); // Recargar proyectos
+          alert('¡Invitación aceptada! Ahora eres miembro del proyecto.');
+        }
+      } else {
+        alert('Error al unirse al proyecto');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Error de conexión');
+    }
+  };
+
+  // Rechazar invitación
+  const handleRejectInvitation = async (invitationId) => {
+    try {
+      const response = await fetch(`http://localhost:8000/api/project_invitations/${invitationId}`, {
+        method: 'DELETE'
+      });
+      
+      if (response.ok) {
+        setNotifications(prev => prev.filter(inv => inv.id !== invitationId));
+        alert('Invitación rechazada');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  };
 
   const fetchUserProjects = async () => {
     if (!user || !user.id) {
@@ -225,6 +352,8 @@ const Dashboard = ({ user, onLogout }) => {
     }));
   };
 
+  const pendingNotificationsCount = notifications.length;
+
   return (
     <div className="dashboard">
       {/* Header */}
@@ -236,6 +365,71 @@ const Dashboard = ({ user, onLogout }) => {
         </div>
         
         <div className="header-right">
+          {/* Campanita de Notificaciones */}
+          <div className="notifications-bell">
+            <button 
+              className={`bell-btn ${pendingNotificationsCount > 0 ? 'has-notifications' : ''}`}
+              onClick={() => setShowNotifications(!showNotifications)}
+              title="Invitaciones Pendientes"
+            >
+              🔔
+              {pendingNotificationsCount > 0 && (
+                <span className="notification-badge">{pendingNotificationsCount}</span>
+              )}
+            </button>
+
+            {showNotifications && (
+              <div className="notifications-dropdown">
+                <div className="dropdown-header">
+                  <h4>Invitaciones Pendientes</h4>
+                  <button 
+                    className="close-dropdown"
+                    onClick={() => setShowNotifications(false)}
+                  >
+                    ×
+                  </button>
+                </div>
+                
+                <div className="notifications-list">
+                  {loadingNotifications ? (
+                    <div className="loading-notifications">Cargando...</div>
+                  ) : notifications.length === 0 ? (
+                    <div className="no-notifications">
+                      No tienes invitaciones pendientes
+                    </div>
+                  ) : (
+                    notifications.map(invitation => (
+                      <div key={invitation.id} className="notification-item">
+                        <div className="notification-content">
+                          <strong>Te han invitado a:</strong>
+                          <p>{invitation.project?.name || 'Proyecto'}</p>
+                          <small>Rol: {invitation.role || 'member'}</small>
+                        </div>
+                        
+                        <div className="notification-actions">
+                          <button 
+                            className="accept-btn"
+                            onClick={() => handleAcceptInvitation(invitation.id)}
+                            title="Aceptar"
+                          >
+                            ✅
+                          </button>
+                          <button 
+                            className="reject-btn"
+                            onClick={() => handleRejectInvitation(invitation.id)}
+                            title="Rechazar"
+                          >
+                            ❌
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+          
           <button className="settings-btn" title="Ajustes">
             ⚙️
           </button>
@@ -308,8 +502,8 @@ const Dashboard = ({ user, onLogout }) => {
                     className="project-btn"
                     onClick={() => navigate(`/project/${project.id}`)}
                   >
-                  Abrir Proyecto
-                </button>
+                    Abrir Proyecto
+                  </button>
                 </div>
               );
             })}
@@ -318,7 +512,7 @@ const Dashboard = ({ user, onLogout }) => {
             {!loading && Array.isArray(projects) && projects.length === 0 && (
               <div className="no-projects">
                 <p>No tienes proyectos creados todavía.</p>
-                <p>¡Crea tu primer proyecto!</p>
+                <p>¡Crea uno primero!</p>
               </div>
             )}
             
