@@ -1,0 +1,43 @@
+/* settings.css - Versión mínima y corregida */
+.settings-page {
+  background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%) !important;
+}
+
+/* Asegurar que los textos sean legibles en modo oscuro */
+.card.bg-dark .form-control.bg-dark {
+  color: #f8f9fa !important;
+}
+
+.card.bg-dark .form-control.bg-dark::placeholder {
+  color: #6c757d !important;
+}
+
+/* Mejorar la visibilidad de los bordes */
+.border-secondary {
+  border-color: #495057 !important;
+}
+
+/* Asegurar que los botones se vean bien */
+.btn-outline-secondary {
+  border-color: #6c757d;
+  color: #adb5bd;
+}
+
+.btn-outline-secondary:hover {
+  background-color: #6c757d;
+  border-color: #6c757d;
+  color: #fff;
+}
+
+/* Responsive improvements */
+@media (max-width: 768px) {
+  .container-fluid {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  
+  .navbar .d-flex {
+    flex-wrap: wrap;
+    gap: 10px !important;
+  }
+}

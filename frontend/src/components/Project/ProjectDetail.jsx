@@ -1,11 +1,13 @@
 // src/components/Project/ProjectDetail.jsx
 import React, { useState, useEffect } from 'react';
 import './ProjectDetail.css';
+import Settings from '../Settings/settings';
 
 const ProjectDetail = ({ project, user, onBack }) => {
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showCreateTicket, setShowCreateTicket] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [newTicket, setNewTicket] = useState({
     title: '',
     description: '',

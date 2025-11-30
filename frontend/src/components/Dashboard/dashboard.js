@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import Settings from '../Settings/settings';
 import './dashboard.css';
 
 const Dashboard = ({ user, onLogout }) => {
   const navigate = useNavigate();
   const [showCreateProject, setShowCreateProject] = useState(false);
   const [projects, setProjects] = useState([]);
+  const [showSettings, setShowSettings] = useState(false);
   const [projectTickets, setProjectTickets] = useState({});
   const [loading, setLoading] = useState(false);
   const [newProject, setNewProject] = useState({
@@ -18,19 +20,36 @@ const Dashboard = ({ user, onLogout }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
 
+  // AÑADIR ESTADO PARA EL USUARIO ACTUALIZADO
+  const [currentUser, setCurrentUser] = useState(user);
+
+  // Actualizar currentUser cuando user cambie
+  useEffect(() => {
+    setCurrentUser(user);
+  }, [user]);
+
   // Cargar proyectos del usuario al montar el componente
   useEffect(() => {
     fetchUserProjects();
     fetchPendingInvitations();
-  }, [user]);
+  }, [currentUser]); // Cambiar a currentUser
+
+  // AÑADIR ESTA FUNCIÓN PARA ACTUALIZAR EL USUARIO
+  const handleUserUpdate = (updatedUser) => {
+    setCurrentUser(updatedUser);
+    // También actualizar en localStorage si lo usas
+    if (localStorage.getItem('currentUser')) {
+      localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+    }
+  };
 
   // Cargar invitaciones pendientes
   const fetchPendingInvitations = async () => {
-    if (!user?.email) return;
+    if (!currentUser?.email) return;
     
     try {
       setLoadingNotifications(true);
-      console.log('🔍 Buscando invitaciones para:', user.email);
+      console.log('🔍 Buscando invitaciones para:', currentUser.email);
       
       const response = await fetch('http://localhost:8000/api/project_invitations', {
         headers: {
@@ -49,15 +68,15 @@ const Dashboard = ({ user, onLogout }) => {
         
         // BUSCAR POR EMAIL
         const userInvitations = allInvitations.filter(invitation => {
-          const matchesEmail = invitation.invitedEmail === user.email;
+          const matchesEmail = invitation.invitedEmail === currentUser.email;
           const isPending = invitation.status === 'pending';
           
-          console.log(`🔍 Comparando: "${invitation.invitedEmail}" === "${user.email}" && status: ${invitation.status} → ${matchesEmail && isPending}`);
+          console.log(`🔍 Comparando: "${invitation.invitedEmail}" === "${currentUser.email}" && status: ${invitation.status} → ${matchesEmail && isPending}`);
           
           return matchesEmail && isPending;
         });
         
-        console.log('✅ Invitaciones filtradas para', user.email, ':', userInvitations);
+        console.log('✅ Invitaciones filtradas para', currentUser.email, ':', userInvitations);
         setNotifications(userInvitations);
       } else {
         console.log('❌ Error en la API:', response.status);
@@ -94,7 +113,7 @@ const Dashboard = ({ user, onLogout }) => {
           'Accept': 'application/ld+json',
         },
         body: JSON.stringify({
-          user: `/api/users/${user.id}`,
+          user: `/api/users/${currentUser.id}`,
           project: invitation.project,
           role: invitation.role || 'member',
           joinedAt: new Date().toISOString()
@@ -147,7 +166,7 @@ const Dashboard = ({ user, onLogout }) => {
   };
 
   const fetchUserProjects = async () => {
-    if (!user || !user.id) {
+    if (!currentUser || !currentUser.id) {
       setProjects([]);
       return;
     }
@@ -177,8 +196,8 @@ const Dashboard = ({ user, onLogout }) => {
         const userProjects = projectsArray.filter(project => {
           const ownerIri = project.userOwner;
           return typeof ownerIri === 'string' 
-            ? ownerIri.includes(`/api/users/${user.id}`)
-            : (ownerIri && ownerIri.id === user.id);
+            ? ownerIri.includes(`/api/users/${currentUser.id}`)
+            : (ownerIri && ownerIri.id === currentUser.id);
         });
         
         setProjects(userProjects);
@@ -282,7 +301,7 @@ const Dashboard = ({ user, onLogout }) => {
 
   // Función para obtener la inicial del usuario
   const getUserInitial = () => {
-    return user?.name ? user.name.charAt(0).toUpperCase() : 'U';
+    return currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : 'U';
   };
 
   // Función para generar color basado en el nombre
@@ -291,9 +310,9 @@ const Dashboard = ({ user, onLogout }) => {
       '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', 
       '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9'
     ];
-    if (!user?.name) return colors[0];
+    if (!currentUser?.name) return colors[0];
     
-    const index = user.name.charCodeAt(0) % colors.length;
+    const index = currentUser.name.charCodeAt(0) % colors.length;
     return colors[index];
   };
 
@@ -319,7 +338,7 @@ const Dashboard = ({ user, onLogout }) => {
           description: newProject.description,
           createdAt: now,
           updatedAt: now,
-          userOwner: `/api/users/${user.id}`
+          userOwner: `/api/users/${currentUser.id}`
         })
       });
 
@@ -353,6 +372,17 @@ const Dashboard = ({ user, onLogout }) => {
   };
 
   const pendingNotificationsCount = notifications.length;
+  
+  if (showSettings) {
+    return (
+      <Settings 
+        user={currentUser} // Cambiar a currentUser
+        onBack={() => setShowSettings(false)}
+        onLogout={onLogout}
+        onUserUpdate={handleUserUpdate} // ← AÑADIR ESTA PROP
+      />
+    );
+  }
 
   return (
     <div className="dashboard">
@@ -430,14 +460,18 @@ const Dashboard = ({ user, onLogout }) => {
             )}
           </div>
           
-          <button className="settings-btn" title="Ajustes">
-            ⚙️
+          <button 
+            className="settings-btn" 
+            title="Ajustes"
+            onClick={() => setShowSettings(true)}
+          >
+          ⚙️
           </button>
           
           <div 
             className="user-avatar"
             style={{ backgroundColor: getUserColor() }}
-            title={user?.name || 'Usuario'}
+            title={currentUser?.name || 'Usuario'}
           >
             {getUserInitial()}
           </div>
