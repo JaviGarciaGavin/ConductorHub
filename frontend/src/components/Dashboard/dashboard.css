@@ -891,3 +891,27 @@
   z-index: 11001; 
 }
 
+/* Estilos para badges de rol */
+.project-role-badge {
+  margin-bottom: 10px;
+}
+
+.role-badge {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+
+.role-badge.owner {
+  background: rgba(255, 215, 0, 0.2);
+  border-color: rgba(255, 215, 0, 0.4);
+  color: #FFD700;
+}
+
+.role-badge.member {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.4);
+  color: #3B82F6;
+}

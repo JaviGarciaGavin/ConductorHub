@@ -1,4 +1,3 @@
-// src/components/ProjectDashboard/ProjectDashboard.js
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import './ProjectDashboard.css';
@@ -9,6 +8,7 @@ const ProjectDashboard = ({ user }) => {
   const [project, setProject] = useState(null);
   const [tickets, setTickets] = useState([]);
   const [projectMembers, setProjectMembers] = useState([]);
+  const [projectOwner, setProjectOwner] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showTicketModal, setShowTicketModal] = useState(false);
@@ -17,6 +17,11 @@ const ProjectDashboard = ({ user }) => {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteLoading, setInviteLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+
+  // Estados para comentarios
+  const [comments, setComments] = useState([]);
+  const [newComment, setNewComment] = useState('');
+  const [commentLoading, setCommentLoading] = useState(false);
 
   // Estado para nuevo ticket
   const [newTicket, setNewTicket] = useState({
@@ -34,12 +39,31 @@ const ProjectDashboard = ({ user }) => {
     }
   }, [projectId]);
 
+  // Cargar comentarios cuando se selecciona un ticket
+  useEffect(() => {
+    if (selectedTicket) {
+      fetchComments(selectedTicket.id);
+    }
+  }, [selectedTicket]);
+
   const fetchProjectData = async () => {
     try {
       const response = await fetch(`http://localhost:8000/api/projects/${projectId}`);
       if (response.ok) {
         const projectData = await response.json();
         setProject(projectData);
+        
+        // Cargar información del dueño
+        const ownerIri = projectData.userOwner;
+        if (typeof ownerIri === 'string') {
+          const ownerResponse = await fetch(`http://localhost:8000${ownerIri}`);
+          if (ownerResponse.ok) {
+            const ownerData = await ownerResponse.json();
+            setProjectOwner(ownerData);
+          }
+        } else if (ownerIri && ownerIri.id) {
+          setProjectOwner(ownerIri);
+        }
       }
     } catch (error) {
       console.error('Error cargando proyecto:', error);
@@ -79,22 +103,128 @@ const ProjectDashboard = ({ user }) => {
     }
   };
 
-  const fetchProjectMembers = async () => {
+  // Función para cargar comentarios
+  const fetchComments = async (ticketId) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/project_members?project.id=${projectId}`);
+      const response = await fetch(`http://localhost:8000/api/comments?ticket=/api/tickets/${ticketId}`);
       if (response.ok) {
         const data = await response.json();
+        const commentsArray = data.member || data['hydra:member'] || [];
+        
+        // Cargar detalles del autor para cada comentario
+        const commentsWithAuthors = await Promise.all(
+          commentsArray.map(async (comment) => {
+            try {
+              const userResponse = await fetch(`http://localhost:8000${comment.user}`);
+              if (userResponse.ok) {
+                const userData = await userResponse.json();
+                return {
+                  ...comment,
+                  author: userData
+                };
+              }
+            } catch (error) {
+              console.error('Error cargando autor del comentario:', error);
+            }
+            return comment;
+          })
+        );
+        
+        setComments(commentsWithAuthors);
+      }
+    } catch (error) {
+      console.error('Error cargando comentarios:', error);
+    }
+  };
+
+  // Función para agregar comentario
+  const handleAddComment = async (e) => {
+    e.preventDefault();
+    if (!newComment.trim() || !selectedTicket) return;
+
+    setCommentLoading(true);
+    try {
+      const response = await fetch('http://localhost:8000/api/comments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/ld+json',
+          'Accept': 'application/ld+json',
+        },
+        body: JSON.stringify({
+          content: newComment,
+          createdAt: new Date().toISOString(),
+          user: `/api/users/${user.id}`,
+          ticket: `/api/tickets/${selectedTicket.id}`
+        })
+      });
+
+      if (response.ok) {
+        const createdComment = await response.json();
+        
+        // Cargar detalles del autor para el nuevo comentario
+        const userResponse = await fetch(`http://localhost:8000/api/users/${user.id}`);
+        if (userResponse.ok) {
+          const userData = await userResponse.json();
+          const commentWithAuthor = {
+            ...createdComment,
+            author: userData
+          };
+          
+          setComments(prev => [...prev, commentWithAuthor]);
+          setNewComment('');
+        }
+      } else {
+        alert('Error al agregar comentario');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Error de conexión');
+    } finally {
+      setCommentLoading(false);
+    }
+  };
+
+  // NUEVA FUNCIÓN MEJORADA para cargar miembros
+  const fetchProjectMembers = async () => {
+    try {
+      // Cargar miembros del proyecto
+      const membersResponse = await fetch(`http://localhost:8000/api/project_members?project=/api/projects/${projectId}`);
+      if (membersResponse.ok) {
+        const data = await membersResponse.json();
         const membersArray = data.member || data['hydra:member'] || [];
-        setProjectMembers(membersArray);
+        
+        // Cargar detalles de cada miembro
+        const membersWithDetails = await Promise.all(
+          membersArray.map(async (member) => {
+            try {
+              const userResponse = await fetch(`http://localhost:8000${member.user}`);
+              if (userResponse.ok) {
+                const userData = await userResponse.json();
+                return {
+                  ...member,
+                  userDetails: userData
+                };
+              }
+            } catch (error) {
+              console.error('Error cargando usuario:', error);
+            }
+            return member;
+          })
+        );
+        
+        setProjectMembers(membersWithDetails);
       }
     } catch (error) {
       console.error('Error cargando miembros:', error);
-      setProjectMembers([
-        { id: 1, user: { name: 'Ana Martínez', email: 'ana@empresa.com' }, role: 'Owner' },
-        { id: 2, user: { name: 'Carlos López', email: 'carlos@empresa.com' }, role: 'Member' },
-        { id: 3, user: { name: 'María García', email: 'maria@empresa.com' }, role: 'Member' }
-      ]);
     }
+  };
+
+  // Función para obtener color del avatar
+  const getUserColor = (userName) => {
+    const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9'];
+    if (!userName) return colors[0];
+    const index = userName.charCodeAt(0) % colors.length;
+    return colors[index];
   };
 
   const handleBackToDashboard = () => {
@@ -275,6 +405,7 @@ const ProjectDashboard = ({ user }) => {
         alert(`✅ Invitación enviada a ${foundUser.name} (${foundUser.email})`);
         setInviteEmail('');
         setShowInviteModal(false);
+        fetchProjectMembers(); // Recargar miembros
       } else {
         const errorData = await response.json();
         alert(`❌ Error: ${errorData.detail || 'No se pudo enviar la invitación'}`);
@@ -491,22 +622,70 @@ const ProjectDashboard = ({ user }) => {
               </div>
               <div className="card-body p-3">
                 <div className="mb-3">
-                  {projectMembers.map(member => (
-                    <div key={member.id} className="project-dashboard-member-card d-flex align-items-center mb-2 p-2 rounded-3">
-                      <div className="project-dashboard-member-avatar rounded-circle d-flex align-items-center justify-content-center me-3">
-                        {member.user?.name?.charAt(0) || 'U'}
+                  {/* Mostrar dueño primero */}
+                  {projectOwner && (
+                    <div key="owner" className="project-dashboard-member-card d-flex align-items-center mb-2 p-2 rounded-3 owner-member">
+                      <div 
+                        className="project-dashboard-member-avatar rounded-circle d-flex align-items-center justify-content-center me-3"
+                        style={{ backgroundColor: getUserColor(projectOwner.name) }}
+                      >
+                        {projectOwner.name?.charAt(0) || 'U'}
                       </div>
                       <div className="flex-grow-1">
-                        <div className="fw-semibold">{member.user?.name || 'Usuario'}</div>
-                        <small className="text-muted">{member.user?.email || 'Sin email'}</small>
+                        <div className="fw-semibold d-flex align-items-center">
+                          {projectOwner.name || 'Dueño'}
+                          <span className="owner-crown ms-2" title="Dueño">👑</span>
+                          {projectOwner.id === user.id && (
+                            <span className="badge bg-info ms-2">Tú</span>
+                          )}
+                        </div>
+                        <small className="text-muted">{projectOwner.email || ''}</small>
                         <div>
-                          <span className={`badge bg-${member.role === 'Owner' ? 'primary' : 'secondary'} me-1`}>
-                            {member.role}
-                          </span>
+                          <span className="badge bg-primary me-1">Owner</span>
                         </div>
                       </div>
                     </div>
-                  ))}
+                  )}
+                  
+                  {/* Mostrar otros miembros */}
+                  {projectMembers
+                    .filter(member => member.userDetails && member.userDetails.id !== projectOwner?.id)
+                    .map(member => (
+                      <div key={member.id} className="project-dashboard-member-card d-flex align-items-center mb-2 p-2 rounded-3">
+                        <div 
+                          className="project-dashboard-member-avatar rounded-circle d-flex align-items-center justify-content-center me-3"
+                          style={{ backgroundColor: getUserColor(member.userDetails?.name) }}
+                        >
+                          {member.userDetails?.name?.charAt(0) || 'U'}
+                        </div>
+                        <div className="flex-grow-1">
+                          <div className="fw-semibold d-flex align-items-center">
+                            {member.userDetails?.name || 'Usuario'}
+                            {member.userDetails?.id === user.id && (
+                              <span className="badge bg-info ms-2">Tú</span>
+                            )}
+                          </div>
+                          <small className="text-muted">{member.userDetails?.email || ''}</small>
+                          <div>
+                            <span className={`badge ${
+                              member.role === 'admin' ? 'bg-warning' : 
+                              member.role === 'member' ? 'bg-secondary' : 'bg-secondary'
+                            } me-1`}>
+                              {member.role === 'admin' ? 'Admin' : 
+                               member.role === 'member' ? 'Member' : member.role}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  }
+                  
+                  {/* Mensaje si no hay miembros */}
+                  {projectMembers.length === 0 && !projectOwner && (
+                    <div className="text-center text-muted py-3">
+                      <small>No hay miembros en el proyecto</small>
+                    </div>
+                  )}
                 </div>
 
                 <button 
@@ -522,7 +701,7 @@ const ProjectDashboard = ({ user }) => {
         </div>
       </main>
 
-      {/* Modal para detalles del ticket */}
+      {/* Modal para detalles del ticket CON COMENTARIOS */}
       {showTicketModal && selectedTicket && (
         <div className="modal show d-block project-dashboard-modal-overlay">
           <div className="modal-dialog modal-dialog-centered modal-lg">
@@ -576,6 +755,80 @@ const ProjectDashboard = ({ user }) => {
                   <p className="mt-2 p-3 bg-dark rounded">
                     {selectedTicket.description || 'Sin descripción'}
                   </p>
+                </div>
+
+                {/* SECCIÓN DE COMENTARIOS */}
+                <div className="mb-4 border-top pt-3">
+                  <h6 className="fw-bold mb-3">💬 Comentarios ({comments.length})</h6>
+                  
+                  {/* Lista de comentarios */}
+                  <div className="comments-section mb-3" style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                    {comments.length > 0 ? (
+                      comments.map(comment => (
+                        <div key={comment.id} className="comment-item mb-3 p-3 bg-light rounded">
+                          <div className="d-flex justify-content-between align-items-start mb-2">
+                            <div className="d-flex align-items-center">
+                              <div 
+                                className="comment-avatar rounded-circle d-flex align-items-center justify-content-center me-2"
+                                style={{ 
+                                  backgroundColor: getUserColor(comment.author?.name),
+                                  width: '32px',
+                                  height: '32px',
+                                  fontSize: '0.8rem',
+                                  color: 'white',
+                                  fontWeight: 'bold'
+                                }}
+                              >
+                                {comment.author?.name?.charAt(0) || 'U'}
+                              </div>
+                              <div>
+                                <strong className="d-block">{comment.author?.name || 'Usuario'}</strong>
+                                <small className="text-muted">
+                                  {new Date(comment.createdAt).toLocaleString()}
+                                </small>
+                              </div>
+                            </div>
+                            {comment.author?.id === user.id && (
+                              <span className="badge bg-info">Tú</span>
+                            )}
+                          </div>
+                          <p className="mb-0">{comment.content}</p>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center text-muted py-3">
+                        <small>No hay comentarios aún</small>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Formulario para nuevo comentario */}
+                  <form onSubmit={handleAddComment}>
+                    <div className="mb-2">
+                      <textarea
+                        className="form-control"
+                        rows="3"
+                        placeholder="Escribe un comentario..."
+                        value={newComment}
+                        onChange={(e) => setNewComment(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="d-flex justify-content-end">
+                      <button 
+                        type="submit" 
+                        className="btn btn-primary btn-sm"
+                        disabled={commentLoading || !newComment.trim()}
+                      >
+                        {commentLoading ? (
+                          <>
+                            <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                            Enviando...
+                          </>
+                        ) : 'Agregar Comentario'}
+                      </button>
+                    </div>
+                  </form>
                 </div>
 
                 {/* Controles para cambiar estado y eliminar */}

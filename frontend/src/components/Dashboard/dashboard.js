@@ -15,71 +15,40 @@ const Dashboard = ({ user, onLogout }) => {
     description: ''
   });
 
-  // Estados para la campanita de notificaciones
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
-
-  // AÑADIR ESTADO PARA EL USUARIO ACTUALIZADO
   const [currentUser, setCurrentUser] = useState(user);
 
-  // Actualizar currentUser cuando user cambie
   useEffect(() => {
     setCurrentUser(user);
   }, [user]);
 
-  // Cargar proyectos del usuario al montar el componente
   useEffect(() => {
     fetchUserProjects();
     fetchPendingInvitations();
-  }, [currentUser]); // Cambiar a currentUser
+  }, [currentUser]);
 
-  // AÑADIR ESTA FUNCIÓN PARA ACTUALIZAR EL USUARIO
   const handleUserUpdate = (updatedUser) => {
     setCurrentUser(updatedUser);
-    // También actualizar en localStorage si lo usas
-    if (localStorage.getItem('currentUser')) {
-      localStorage.setItem('currentUser', JSON.stringify(updatedUser));
-    }
   };
 
-  // Cargar invitaciones pendientes
   const fetchPendingInvitations = async () => {
     if (!currentUser?.email) return;
     
     try {
       setLoadingNotifications(true);
-      console.log('🔍 Buscando invitaciones para:', currentUser.email);
-      
       const response = await fetch('http://localhost:8000/api/project_invitations', {
-        headers: {
-          'Accept': 'application/ld+json',
-        }
+        headers: { 'Accept': 'application/ld+json' }
       });
       
       if (response.ok) {
         const data = await response.json();
-        console.log('📊 DATA COMPLETA DE API:', data);
-        
-        // CORREGIDO: Usar data.member en lugar de data['hydra:member']
         const allInvitations = data.member || data['hydra:member'] || [];
-        
-        console.log('📨 Todas las invitaciones:', allInvitations);
-        
-        // BUSCAR POR EMAIL
-        const userInvitations = allInvitations.filter(invitation => {
-          const matchesEmail = invitation.invitedEmail === currentUser.email;
-          const isPending = invitation.status === 'pending';
-          
-          console.log(`🔍 Comparando: "${invitation.invitedEmail}" === "${currentUser.email}" && status: ${invitation.status} → ${matchesEmail && isPending}`);
-          
-          return matchesEmail && isPending;
-        });
-        
-        console.log('✅ Invitaciones filtradas para', currentUser.email, ':', userInvitations);
+        const userInvitations = allInvitations.filter(invitation => 
+          invitation.invitedEmail === currentUser.email && invitation.status === 'pending'
+        );
         setNotifications(userInvitations);
-      } else {
-        console.log('❌ Error en la API:', response.status);
       }
     } catch (error) {
       console.error('Error:', error);
@@ -88,14 +57,10 @@ const Dashboard = ({ user, onLogout }) => {
     }
   };
 
-  // Aceptar invitación
   const handleAcceptInvitation = async (invitationId) => {
     try {
-      // Primero obtenemos la invitación completa
       const invitationResponse = await fetch(`http://localhost:8000/api/project_invitations/${invitationId}`, {
-        headers: {
-          'Accept': 'application/ld+json',
-        }
+        headers: { 'Accept': 'application/ld+json' }
       });
       
       if (!invitationResponse.ok) {
@@ -105,7 +70,19 @@ const Dashboard = ({ user, onLogout }) => {
       
       const invitation = await invitationResponse.json();
       
-      // Crear el ProjectMember
+      let projectId;
+      if (typeof invitation.project === 'string') {
+        const match = invitation.project.match(/\/api\/projects\/(\d+)/);
+        projectId = match ? match[1] : null;
+      } else if (invitation.project && invitation.project.id) {
+        projectId = invitation.project.id;
+      }
+      
+      if (!projectId) {
+        alert('Error: No se pudo obtener el ID del proyecto');
+        return;
+      }
+      
       const memberResponse = await fetch('http://localhost:8000/api/project_members', {
         method: 'POST',
         headers: {
@@ -114,22 +91,20 @@ const Dashboard = ({ user, onLogout }) => {
         },
         body: JSON.stringify({
           user: `/api/users/${currentUser.id}`,
-          project: invitation.project,
+          project: `/api/projects/${projectId}`,
           role: invitation.role || 'member',
           joinedAt: new Date().toISOString()
         })
       });
       
       if (memberResponse.ok) {
-        // Actualizar la invitación a "accepted"
         const updateResponse = await fetch(`http://localhost:8000/api/project_invitations/${invitationId}`, {
-          method: 'PUT',
+          method: 'PATCH',
           headers: {
-            'Content-Type': 'application/ld+json',
+            'Content-Type': 'application/merge-patch+json',
             'Accept': 'application/ld+json',
           },
           body: JSON.stringify({
-            ...invitation,
             status: 'accepted',
             acceptedAt: new Date().toISOString()
           })
@@ -137,7 +112,7 @@ const Dashboard = ({ user, onLogout }) => {
         
         if (updateResponse.ok) {
           setNotifications(prev => prev.filter(inv => inv.id !== invitationId));
-          fetchUserProjects(); // Recargar proyectos
+          fetchUserProjects();
           alert('¡Invitación aceptada! Ahora eres miembro del proyecto.');
         }
       } else {
@@ -149,7 +124,6 @@ const Dashboard = ({ user, onLogout }) => {
     }
   };
 
-  // Rechazar invitación
   const handleRejectInvitation = async (invitationId) => {
     try {
       const response = await fetch(`http://localhost:8000/api/project_invitations/${invitationId}`, {
@@ -173,41 +147,65 @@ const Dashboard = ({ user, onLogout }) => {
     
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:8000/api/projects', {
-        headers: {
-          'Accept': 'application/ld+json',
-        }
+      
+      // Cargar proyectos donde es dueño
+      const projectsResponse = await fetch('http://localhost:8000/api/projects', {
+        headers: { 'Accept': 'application/ld+json' }
       });
       
-      if (response.ok) {
-        const data = await response.json();
-        
-        let projectsArray = [];
-        
-        if (data['hydra:member']) {
-          projectsArray = data['hydra:member'];
-        } else if (data.member) {
-          projectsArray = data.member;
-        } else if (Array.isArray(data)) {
-          projectsArray = data;
-        }
-        
-        // Filtrar proyectos del usuario actual usando el IRI
-        const userProjects = projectsArray.filter(project => {
+      let ownerProjects = [];
+      if (projectsResponse.ok) {
+        const data = await projectsResponse.json();
+        const projectsArray = data.member || data['hydra:member'] || [];
+        ownerProjects = projectsArray.filter(project => {
           const ownerIri = project.userOwner;
           return typeof ownerIri === 'string' 
             ? ownerIri.includes(`/api/users/${currentUser.id}`)
             : (ownerIri && ownerIri.id === currentUser.id);
         });
-        
-        setProjects(userProjects);
-        
-        // Cargar TODOS los tickets una sola vez y distribuirlos por proyecto
-        await fetchAllTicketsAndDistribute(userProjects);
-      } else {
-        console.error('Error al cargar proyectos:', response.status);
-        setProjects([]);
       }
+
+      // Cargar proyectos donde es miembro
+      const membersResponse = await fetch(`http://localhost:8000/api/project_members?user=/api/users/${currentUser.id}`, {
+        headers: { 'Accept': 'application/ld+json' }
+      });
+      
+      let memberProjects = [];
+      if (membersResponse.ok) {
+        const membersData = await membersResponse.json();
+        const membersArray = membersData.member || membersData['hydra:member'] || [];
+        
+        // Cargar detalles de cada proyecto donde es miembro
+        memberProjects = await Promise.all(
+          membersArray.map(async (member) => {
+            try {
+              const projectResponse = await fetch(`http://localhost:8000${member.project}`);
+              if (projectResponse.ok) {
+                const projectData = await projectResponse.json();
+                return {
+                  ...projectData,
+                  userRole: member.role,
+                  isMember: true
+                };
+              }
+            } catch (error) {
+              console.error('Error cargando proyecto:', error);
+            }
+            return null;
+          })
+        );
+        memberProjects = memberProjects.filter(project => project !== null);
+      }
+
+      // Combinar proyectos (eliminar duplicados)
+      const allProjects = [...ownerProjects, ...memberProjects];
+      const uniqueProjects = allProjects.filter((project, index, self) => 
+        index === self.findIndex(p => p.id === project.id)
+      );
+
+      setProjects(uniqueProjects);
+      await fetchAllTicketsAndDistribute(uniqueProjects);
+      
     } catch (error) {
       console.error('Error:', error);
       setProjects([]);
@@ -216,55 +214,37 @@ const Dashboard = ({ user, onLogout }) => {
     }
   };
 
-  // NUEVA FUNCIÓN: Cargar todos los tickets y distribuirlos por proyecto
   const fetchAllTicketsAndDistribute = async (userProjects) => {
     try {
       const response = await fetch('http://localhost:8000/api/tickets', {
-        headers: {
-          'Accept': 'application/ld+json',
-        }
+        headers: { 'Accept': 'application/ld+json' }
       });
       
       if (response.ok) {
         const data = await response.json();
-        const allTickets = data['hydra:member'] || data.member || data || [];
+        const allTickets = data.member || data['hydra:member'] || data || [];
         
-        console.log('Todos los tickets cargados:', allTickets); // Para debug
-        
-        // Crear un objeto para almacenar tickets por proyecto
         const ticketsByProject = {};
-        
-        // Inicializar todos los proyectos con arrays vacíos
         userProjects.forEach(project => {
           ticketsByProject[project.id] = [];
         });
         
-        // Distribuir tickets a sus proyectos correspondientes
         allTickets.forEach(ticket => {
           const ticketProject = ticket.project;
           let projectId = null;
           
-          // Extraer el projectId del ticket
           if (typeof ticketProject === 'string') {
-            // Si es un IRI como "/api/projects/1"
             const match = ticketProject.match(/\/api\/projects\/(\d+)/);
-            if (match) {
-              projectId = parseInt(match[1]);
-            }
+            if (match) projectId = parseInt(match[1]);
           } else if (ticketProject && ticketProject.id) {
-            // Si es un objeto con id
             projectId = ticketProject.id;
           }
           
-          // Si encontramos un projectId válido y el proyecto existe en userProjects
           if (projectId && ticketsByProject[projectId] !== undefined) {
             ticketsByProject[projectId].push(ticket);
           }
         });
         
-        console.log('Tickets distribuidos por proyecto:', ticketsByProject); // Para debug
-        
-        // Actualizar el estado con los tickets distribuidos
         Object.keys(ticketsByProject).forEach(projectId => {
           const tickets = ticketsByProject[projectId];
           const counts = tickets.reduce((acc, ticket) => {
@@ -280,18 +260,10 @@ const Dashboard = ({ user, onLogout }) => {
         });
       }
     } catch (error) {
-      console.error('Error cargando todos los tickets:', error);
-      // Inicializar todos los proyectos con contadores en 0
-      userProjects.forEach(project => {
-        setProjectTickets(prev => ({
-          ...prev,
-          [project.id]: { tickets: [], counts: { low: 0, medium: 0, high: 0, urgent: 0 } }
-        }));
-      });
+      console.error('Error cargando tickets:', error);
     }
   };
 
-  // Configuración de prioridades
   const priorityConfig = {
     low: { icon: '◇', color: '#10B981', label: 'Baja' },
     medium: { icon: '◇', color: '#F59E0B', label: 'Media' },
@@ -299,19 +271,16 @@ const Dashboard = ({ user, onLogout }) => {
     urgent: { icon: '💀', color: '#DC2626', label: 'Urgente' }
   };
 
-  // Función para obtener la inicial del usuario
   const getUserInitial = () => {
     return currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : 'U';
   };
 
-  // Función para generar color basado en el nombre
   const getUserColor = () => {
     const colors = [
       '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', 
       '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9'
     ];
     if (!currentUser?.name) return colors[0];
-    
     const index = currentUser.name.charCodeAt(0) % colors.length;
     return colors[index];
   };
@@ -324,7 +293,6 @@ const Dashboard = ({ user, onLogout }) => {
 
     try {
       setLoading(true);
-      
       const now = new Date().toISOString();
       
       const response = await fetch('http://localhost:8000/api/projects', {
@@ -348,8 +316,6 @@ const Dashboard = ({ user, onLogout }) => {
         setNewProject({ name: '', description: '' });
         setShowCreateProject(false);
         alert('Proyecto creado exitosamente!');
-        
-        // Recargar los tickets para incluir el nuevo proyecto
         fetchUserProjects();
       } else {
         const errorData = await response.json();
@@ -376,26 +342,22 @@ const Dashboard = ({ user, onLogout }) => {
   if (showSettings) {
     return (
       <Settings 
-        user={currentUser} // Cambiar a currentUser
+        user={currentUser}
         onBack={() => setShowSettings(false)}
         onLogout={onLogout}
-        onUserUpdate={handleUserUpdate} // ← AÑADIR ESTA PROP
+        onUserUpdate={handleUserUpdate}
       />
     );
   }
 
   return (
     <div className="dashboard">
-      {/* Header */}
       <header className="dashboard-header">
         <div className="header-left">
-          <div className="logo">
-            🚀 ConductorHub
-          </div>
+          <div className="logo">🚀 ConductorHub</div>
         </div>
         
         <div className="header-right">
-          {/* Campanita de Notificaciones */}
           <div className="notifications-bell">
             <button 
               className={`bell-btn ${pendingNotificationsCount > 0 ? 'has-notifications' : ''}`}
@@ -465,7 +427,7 @@ const Dashboard = ({ user, onLogout }) => {
             title="Ajustes"
             onClick={() => setShowSettings(true)}
           >
-          ⚙️
+            ⚙️
           </button>
           
           <div 
@@ -476,16 +438,12 @@ const Dashboard = ({ user, onLogout }) => {
             {getUserInitial()}
           </div>
           
-          <button 
-            className="logout-btn" 
-            onClick={onLogout}
-          >
+          <button className="logout-btn" onClick={onLogout}>
             Cerrar Sesión
           </button>
         </div>
       </header>
 
-      {/* Contenido principal */}
       <main className="dashboard-content">
         <section className="projects-section">
           <h2>Mis Proyectos</h2>
@@ -493,15 +451,20 @@ const Dashboard = ({ user, onLogout }) => {
           {loading && <div className="loading">Cargando...</div>}
           
           <div className="projects-grid">
-            {/* Proyectos existentes */}
             {Array.isArray(projects) && projects.map(project => {
               const ticketsData = projectTickets[project.id];
               const counts = ticketsData?.counts || { low: 0, medium: 0, high: 0, urgent: 0 };
+              const isOwner = !project.isMember;
               
               return (
                 <div key={project.id} className="project-card">
                   <div className="project-header">
                     <h3>{project.name}</h3>
+                    <div className="project-role-badge">
+                      <span className={`role-badge ${isOwner ? 'Dueño' : 'Miembro'}`}>
+                        {isOwner ? '👑 Dueño' : `👤 ${project.userRole || 'Miembro'}`}
+                      </span>
+                    </div>
                     <div className="tickets-counter">
                       {Object.entries(priorityConfig).map(([priority, config]) => (
                         <div 
@@ -542,7 +505,6 @@ const Dashboard = ({ user, onLogout }) => {
               );
             })}
             
-            {/* Mostrar mensaje si no hay proyectos */}
             {!loading && Array.isArray(projects) && projects.length === 0 && (
               <div className="no-projects">
                 <p>No tienes proyectos creados todavía.</p>
@@ -550,7 +512,6 @@ const Dashboard = ({ user, onLogout }) => {
               </div>
             )}
             
-            {/* Card para crear nuevo proyecto */}
             <div 
               className="project-card new-project-card"
               onClick={() => !loading && setShowCreateProject(true)}
@@ -565,7 +526,6 @@ const Dashboard = ({ user, onLogout }) => {
         </section>
       </main>
 
-      {/* Modal/Popup para crear proyecto */}
       {showCreateProject && (
         <div className="modal-overlay">
           <div className="modal-content">
