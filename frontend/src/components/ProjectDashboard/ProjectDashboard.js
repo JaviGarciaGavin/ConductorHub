@@ -31,10 +31,22 @@ const ProjectDashboard = ({ user }) => {
     category: 'task'
   });
 
+  // Estado para notificaciones in-app
+  const [message, setMessage] = useState({ text: '', type: '' });
+
+  // Función para mostrar notificaciones
+  const showMessage = (text, type = 'success') => {
+    setMessage({ text, type });
+    setTimeout(() => setMessage({ text: '', type: '' }), 5000);
+  };
+
   useEffect(() => {
     if (projectId) {
+      // eslint-disable-next-line react-hooks/exhaustive-deps
       fetchProjectData();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
       fetchProjectTickets();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
       fetchProjectMembers();
     }
   }, [projectId]);
@@ -67,6 +79,7 @@ const ProjectDashboard = ({ user }) => {
       }
     } catch (error) {
       console.error('Error cargando proyecto:', error);
+      showMessage('Error cargando proyecto', 'danger');
     }
   };
 
@@ -98,18 +111,21 @@ const ProjectDashboard = ({ user }) => {
       }
     } catch (error) {
       console.error('Error cargando tickets:', error);
+      showMessage('Error cargando tickets', 'danger');
     } finally {
       setLoading(false);
     }
   };
 
-  // Función para cargar comentarios
+  // Función para cargar comentarios - CORREGIDA para filtrar por ticket.id
   const fetchComments = async (ticketId) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/comments?ticket=/api/tickets/${ticketId}`);
+      const response = await fetch(`http://localhost:8000/api/comments?ticket.id=${ticketId}`);
       if (response.ok) {
         const data = await response.json();
         const commentsArray = data.member || data['hydra:member'] || [];
+        
+        console.log(`Comentarios cargados para ticket ${ticketId}:`, commentsArray.length);
         
         // Cargar detalles del autor para cada comentario
         const commentsWithAuthors = await Promise.all(
@@ -134,10 +150,10 @@ const ProjectDashboard = ({ user }) => {
       }
     } catch (error) {
       console.error('Error cargando comentarios:', error);
+      showMessage('Error cargando comentarios', 'danger');
     }
   };
 
-  // NUEVA FUNCIÓN: Verificar si el usuario puede borrar un comentario
   const canDeleteComment = (comment) => {
     if (!comment || !user) return false;
     
@@ -150,7 +166,7 @@ const ProjectDashboard = ({ user }) => {
     return isCommentAuthor || isProjectOwner;
   };
 
-  // NUEVA FUNCIÓN: Borrar comentario
+  // NUEVA FUNCIÓN: Borrar comentario - CON NOTIFICACIÓN
   const handleDeleteComment = async (commentId) => {
     if (!window.confirm('¿Estás seguro de que quieres eliminar este comentario?')) {
       return;
@@ -164,17 +180,17 @@ const ProjectDashboard = ({ user }) => {
       if (response.ok || response.status === 204) {
         // Eliminar el comentario del estado local
         setComments(prev => prev.filter(comment => comment.id !== commentId));
-        alert('Comentario eliminado correctamente');
+        showMessage('Comentario eliminado correctamente', 'success');
       } else {
-        alert('Error al eliminar el comentario');
+        showMessage('Error al eliminar el comentario', 'danger');
       }
     } catch (error) {
       console.error('Error:', error);
-      alert('Error de conexión al eliminar el comentario');
+      showMessage('Error de conexión al eliminar el comentario', 'danger');
     }
   };
 
-  // Función para agregar comentario
+  // Función para agregar comentario - CON NOTIFICACIÓN
   const handleAddComment = async (e) => {
     e.preventDefault();
     if (!newComment.trim() || !selectedTicket) return;
@@ -209,13 +225,14 @@ const ProjectDashboard = ({ user }) => {
           
           setComments(prev => [...prev, commentWithAuthor]);
           setNewComment('');
+          showMessage('Comentario agregado correctamente', 'success');
         }
       } else {
-        alert('Error al agregar comentario');
+        showMessage('Error al agregar comentario', 'danger');
       }
     } catch (error) {
       console.error('Error:', error);
-      alert('Error de conexión');
+      showMessage('Error de conexión', 'danger');
     } finally {
       setCommentLoading(false);
     }
@@ -226,7 +243,7 @@ const ProjectDashboard = ({ user }) => {
     return projectOwner?.id === user.id;
   };
 
-  // NUEVA FUNCIÓN: Eliminar miembro del proyecto
+  // NUEVA FUNCIÓN: Eliminar miembro del proyecto - CON NOTIFICACIÓN
   const handleRemoveMember = async (memberId, memberName) => {
     if (!window.confirm(`¿Estás seguro de que quieres eliminar a ${memberName} del proyecto?`)) {
       return;
@@ -240,13 +257,13 @@ const ProjectDashboard = ({ user }) => {
       if (response.ok || response.status === 204) {
         // Eliminar el miembro del estado local
         setProjectMembers(prev => prev.filter(member => member.id !== memberId));
-        alert(`${memberName} ha sido eliminado del proyecto`);
+        showMessage(`${memberName} ha sido eliminado del proyecto`, 'success');
       } else {
-        alert('Error al eliminar el miembro');
+        showMessage('Error al eliminar el miembro', 'danger');
       }
     } catch (error) {
       console.error('Error:', error);
-      alert('Error de conexión');
+      showMessage('Error de conexión', 'danger');
     }
   };
 
@@ -282,6 +299,7 @@ const ProjectDashboard = ({ user }) => {
       }
     } catch (error) {
       console.error('Error cargando miembros:', error);
+      showMessage('Error cargando miembros', 'danger');
     }
   };
 
@@ -307,13 +325,12 @@ const ProjectDashboard = ({ user }) => {
     setShowCreateTicketModal(true);
   };
 
-  // Cambiar estado del ticket
+  // Cambiar estado del ticket - CON NOTIFICACIÓN
   const handleStatusChange = async (newStatus) => {
     if (!selectedTicket) return;
     
     setActionLoading(true);
     try {
-      // Usar PATCH en lugar de PUT para actualizar solo el campo necesario
       const response = await fetch(`http://localhost:8000/api/tickets/${selectedTicket.id}`, {
         method: 'PATCH',
         headers: {
@@ -334,44 +351,69 @@ const ProjectDashboard = ({ user }) => {
           ticket.id === selectedTicket.id ? updatedTicket : ticket
         ));
         setSelectedTicket(updatedTicket);
-        
-        console.log('Estado actualizado correctamente!');
+        showMessage('Estado actualizado correctamente', 'success');
       } else {
         const errorData = await response.json();
         console.error('Error del servidor:', errorData);
-        alert(`Error al actualizar el estado: ${errorData.detail || 'Error del servidor'}`);
+        showMessage(`Error al actualizar el estado: ${errorData.detail || 'Error del servidor'}`, 'danger');
       }
     } catch (error) {
       console.error('Error:', error);
-      alert('Error de conexión al actualizar el estado');
+      showMessage('Error de conexión al actualizar el estado', 'danger');
     } finally {
       setActionLoading(false);
     }
   };
 
-  // Eliminar ticket
+  // Eliminar ticket - CORREGIDA para borrar comentarios primero
   const handleDeleteTicket = async () => {
-    if (!selectedTicket || !window.confirm('¿Estás seguro de que quieres eliminar este ticket?')) {
+    if (!selectedTicket || !window.confirm('¿Estás seguro de que quieres eliminar este ticket y todos sus comentarios?')) {
       return;
     }
 
     setActionLoading(true);
     try {
+      // PRIMERO: Borrar todos los comentarios del ticket
+      const commentsResponse = await fetch(`http://localhost:8000/api/comments?ticket.id=${selectedTicket.id}`);
+      if (commentsResponse.ok) {
+        const commentsData = await commentsResponse.json();
+        const ticketComments = commentsData.member || commentsData['hydra:member'] || [];
+        
+        console.log(`Encontrados ${ticketComments.length} comentarios para borrar`);
+        
+        // Borrar cada comentario individualmente
+        for (const comment of ticketComments) {
+          const deleteCommentResponse = await fetch(`http://localhost:8000/api/comments/${comment.id}`, {
+            method: 'DELETE'
+          });
+          
+          if (!deleteCommentResponse.ok && deleteCommentResponse.status !== 204) {
+            console.warn(`No se pudo borrar comentario ${comment.id}`);
+          }
+        }
+        
+        console.log('Todos los comentarios borrados, procediendo a borrar ticket...');
+      }
+
+      // SEGUNDO: Borrar el ticket
       const response = await fetch(`http://localhost:8000/api/tickets/${selectedTicket.id}`, {
         method: 'DELETE'
       });
 
-      if (response.ok) {
+      if (response.ok || response.status === 204) {
         setTickets(prev => prev.filter(ticket => ticket.id !== selectedTicket.id));
         setShowTicketModal(false);
         setSelectedTicket(null);
-        alert('Ticket eliminado correctamente!');
+        setComments([]); // Limpiar comentarios del estado
+        showMessage('Ticket y comentarios eliminados correctamente!', 'success');
       } else {
-        alert('Error al eliminar el ticket');
+        const errorText = await response.text();
+        console.error('Error borrando ticket:', errorText);
+        showMessage('Error al eliminar el ticket', 'danger');
       }
     } catch (error) {
       console.error('Error:', error);
-      alert('Error de conexión');
+      showMessage('Error de conexión', 'danger');
     } finally {
       setActionLoading(false);
     }
@@ -412,13 +454,13 @@ const ProjectDashboard = ({ user }) => {
           category: 'task'
         });
         setShowCreateTicketModal(false);
-        alert('Ticket creado exitosamente!');
+        showMessage('Ticket creado exitosamente!', 'success');
       } else {
-        alert('Error al crear el ticket');
+        showMessage('Error al crear el ticket', 'danger');
       }
     } catch (error) {
       console.error('Error:', error);
-      alert('Error de conexión');
+      showMessage('Error de conexión', 'danger');
     }
   };
 
@@ -428,7 +470,6 @@ const ProjectDashboard = ({ user }) => {
   
     setInviteLoading(true);
     try {
-      // Buscar usuario - AHORA SÍ FUNCIONA
       const userSearchResponse = await fetch(`http://localhost:8000/api/users?email=${encodeURIComponent(inviteEmail.trim())}`);
       
       if (!userSearchResponse.ok) throw new Error('Error buscando usuario');
@@ -437,13 +478,12 @@ const ProjectDashboard = ({ user }) => {
       const users = userData.member || [];
       
       if (users.length === 0) {
-        alert('❌ Usuario no encontrado.');
+        showMessage('Usuario no encontrado', 'danger');
         return;
       }
   
       const foundUser = users[0];
   
-      // Enviar invitación
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 7);
   
@@ -468,18 +508,18 @@ const ProjectDashboard = ({ user }) => {
       });
   
       if (response.ok) {
-        alert(`✅ Invitación enviada a ${foundUser.name} (${foundUser.email})`);
+        showMessage(`Invitación enviada a ${foundUser.name} (${foundUser.email})`, 'success');
         setInviteEmail('');
         setShowInviteModal(false);
-        fetchProjectMembers(); // Recargar miembros
+        fetchProjectMembers();
       } else {
         const errorData = await response.json();
-        alert(`❌ Error: ${errorData.detail || 'No se pudo enviar la invitación'}`);
+        showMessage(`Error: ${errorData.detail || 'No se pudo enviar la invitación'}`, 'danger');
       }
   
     } catch (error) {
       console.error('Error:', error);
-      alert('❌ Error de conexión');
+      showMessage('Error de conexión', 'danger');
     } finally {
       setInviteLoading(false);
     }
@@ -548,6 +588,19 @@ const ProjectDashboard = ({ user }) => {
 
   return (
     <div className="project-dashboard">
+      {/* Notificación in-app */}
+      {message.text && (
+        <div className={`alert alert-${message.type === 'success' ? 'success' : 'danger'} alert-dismissible fade show m-3 position-fixed top-0 end-0 z-3`}
+             style={{maxWidth: '400px'}}>
+          {message.text}
+          <button 
+            type="button" 
+            className="btn-close" 
+            onClick={() => setMessage({ text: '', type: '' })}
+          ></button>
+        </div>
+      )}
+
       {/* Header */}
       <header className="project-dashboard-header bg-dark text-white py-3">
         <div className="container-fluid">
@@ -658,7 +711,6 @@ const ProjectDashboard = ({ user }) => {
                             </div>
                           )}
                           
-                          {/* Botón para añadir ticket */}
                           <button
                             className="btn w-100 mt-2 project-dashboard-add-btn"
                             onClick={() => handleCreateTicket(priority)}
@@ -688,7 +740,6 @@ const ProjectDashboard = ({ user }) => {
               </div>
               <div className="card-body p-3">
                 <div className="mb-3">
-                  {/* Mostrar dueño primero */}
                   {projectOwner && (
                     <div key="owner" className="project-dashboard-member-card d-flex align-items-center mb-2 p-2 rounded-3 owner-member position-relative">
                       <div 
@@ -713,7 +764,6 @@ const ProjectDashboard = ({ user }) => {
                     </div>
                   )}
                   
-                  {/* Mostrar otros miembros */}
                   {projectMembers
                     .filter(member => member.userDetails && member.userDetails.id !== projectOwner?.id)
                     .map(member => (
@@ -743,7 +793,6 @@ const ProjectDashboard = ({ user }) => {
                           </div>
                         </div>
                         
-                        {/* Botón para eliminar miembro - solo visible para el owner */}
                         {canRemoveMembers() && member.userDetails?.id !== user.id && (
                           <button
                             className="btn btn-outline-danger btn-sm member-delete-btn"
@@ -771,7 +820,6 @@ const ProjectDashboard = ({ user }) => {
                     ))
                   }
                   
-                  {/* Mensaje si no hay miembros */}
                   {projectMembers.length === 0 && !projectOwner && (
                     <div className="text-center text-muted py-3">
                       <small>No hay miembros en el proyecto</small>
@@ -852,13 +900,10 @@ const ProjectDashboard = ({ user }) => {
                 <div className="mb-4 border-top pt-3">
                   <h6 className="fw-bold mb-3">Comentarios ({comments.length})</h6>
                   
-                  {/* Lista de comentarios */}
                   <div className="comments-section mb-3" style={{ maxHeight: '300px', overflowY: 'auto' }}>
                     {comments.length > 0 ? (
                       comments.map(comment => (
-                        // QUITÉ LA CLASE "bg-light" DE ESTA LÍNEA ↓
                         <div key={comment.id} className="comment-item mb-3 p-3 rounded position-relative">
-                          {/* Cabecera del comentario - Layout mejorado */}
                           <div className="comment-header d-flex justify-content-between align-items-start mb-2">
                             <div className="d-flex align-items-center">
                               <div 
@@ -893,7 +938,6 @@ const ProjectDashboard = ({ user }) => {
                               </div>
                             </div>
                             
-                            {/* Botón de eliminar comentario - posicionado a la derecha */}
                             {canDeleteComment(comment) && (
                               <button
                                 className="btn btn-outline-danger btn-sm comment-delete-btn"
@@ -914,7 +958,6 @@ const ProjectDashboard = ({ user }) => {
                             )}
                           </div>
                           
-                          {/* Contenido del comentario */}
                           <p className="mb-0 mt-2 small">{comment.content}</p>
                         </div>
                       ))
@@ -925,7 +968,6 @@ const ProjectDashboard = ({ user }) => {
                     )}
                   </div>
 
-                  {/* Formulario para nuevo comentario */}
                   <form onSubmit={handleAddComment}>
                     <div className="mb-2">
                       <textarea
@@ -954,7 +996,6 @@ const ProjectDashboard = ({ user }) => {
                   </form>
                 </div>
 
-                {/* Controles para cambiar estado y eliminar */}
                 <div className="border-top pt-3">
                   <div className="row">
                     <div className="col-md-8">
