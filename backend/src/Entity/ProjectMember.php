@@ -5,8 +5,17 @@ namespace App\Entity;
 use App\Repository\ProjectMemberRepository;
 use Doctrine\ORM\Mapping as ORM;
 use ApiPlatform\Metadata\ApiResource;
+use ApiPlatform\Metadata\ApiFilter;
+use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
+use ApiPlatform\Doctrine\Orm\Filter\OrderFilter;
 
 #[ApiResource]
+#[ApiFilter(SearchFilter::class, properties: [
+    'project' => 'exact',
+    'user' => 'exact',
+    'role' => 'exact',
+])]
+#[ApiFilter(OrderFilter::class, properties: ['id', 'joinedAt'])]
 #[ORM\Entity(repositoryClass: ProjectMemberRepository::class)]
 class ProjectMember
 {

@@ -40,13 +40,11 @@ const ProjectDashboard = ({ user }) => {
     setTimeout(() => setMessage({ text: '', type: '' }), 5000);
   };
 
+  // Cargar datos del proyecto al montar componente
   useEffect(() => {
     if (projectId) {
-      // eslint-disable-next-line react-hooks/exhaustive-deps
       fetchProjectData();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
       fetchProjectTickets();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
       fetchProjectMembers();
     }
   }, [projectId]);
@@ -54,10 +52,21 @@ const ProjectDashboard = ({ user }) => {
   // Cargar comentarios cuando se selecciona un ticket
   useEffect(() => {
     if (selectedTicket) {
+      console.log('Cargando comentarios para ticket ID:', selectedTicket.id);
       fetchComments(selectedTicket.id);
+    } else {
+      setComments([]); // Limpia comentarios cuando no hay ticket seleccionado
     }
   }, [selectedTicket]);
 
+  // Función para cerrar el modal del ticket
+  const handleCloseTicketModal = () => {
+    setSelectedTicket(null);
+    setShowTicketModal(false);
+    setComments([]); // Limpia los comentarios
+  };
+
+  // Función para cargar datos del proyecto
   const fetchProjectData = async () => {
     try {
       const response = await fetch(`http://localhost:8000/api/projects/${projectId}`);
@@ -83,6 +92,7 @@ const ProjectDashboard = ({ user }) => {
     }
   };
 
+  // Función para cargar tickets del proyecto
   const fetchProjectTickets = async () => {
     try {
       const response = await fetch('http://localhost:8000/api/tickets');
@@ -117,19 +127,41 @@ const ProjectDashboard = ({ user }) => {
     }
   };
 
-  // Función para cargar comentarios - CORREGIDA para filtrar por ticket.id
+  // Función para cargar comentarios de un ticket específico - VERSIÓN ROBUSTA (filtrado manual)
   const fetchComments = async (ticketId) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/comments?ticket.id=${ticketId}`);
+      // Obtener TODOS los comentarios
+      const response = await fetch('http://localhost:8000/api/comments');
+      
       if (response.ok) {
         const data = await response.json();
-        const commentsArray = data.member || data['hydra:member'] || [];
+        const allComments = data.member || data['hydra:member'] || [];
         
-        console.log(`Comentarios cargados para ticket ${ticketId}:`, commentsArray.length);
+        console.log(`Total de comentarios en sistema: ${allComments.length}`);
         
-        // Cargar detalles del autor para cada comentario
+        // Filtrar manualmente por ticketId
+        const filteredComments = allComments.filter(comment => {
+          const commentTicket = comment.ticket;
+          let commentTicketId = null;
+          
+          if (typeof commentTicket === 'string') {
+            // Extraer ID de la URL del ticket
+            const match = commentTicket.match(/\/api\/tickets\/(\d+)/);
+            if (match) {
+              commentTicketId = parseInt(match[1]);
+            }
+          } else if (commentTicket && commentTicket.id) {
+            commentTicketId = commentTicket.id;
+          }
+          
+          return commentTicketId === ticketId;
+        });
+        
+        console.log(`Comentarios filtrados para ticket ${ticketId}:`, filteredComments.length);
+        
+        // Cargar detalles del autor para cada comentario filtrado
         const commentsWithAuthors = await Promise.all(
-          commentsArray.map(async (comment) => {
+          filteredComments.map(async (comment) => {
             try {
               const userResponse = await fetch(`http://localhost:8000${comment.user}`);
               if (userResponse.ok) {
@@ -154,6 +186,7 @@ const ProjectDashboard = ({ user }) => {
     }
   };
 
+  // Función para verificar si un usuario puede borrar un comentario
   const canDeleteComment = (comment) => {
     if (!comment || !user) return false;
     
@@ -166,7 +199,7 @@ const ProjectDashboard = ({ user }) => {
     return isCommentAuthor || isProjectOwner;
   };
 
-  // NUEVA FUNCIÓN: Borrar comentario - CON NOTIFICACIÓN
+  // Función para borrar comentario
   const handleDeleteComment = async (commentId) => {
     if (!window.confirm('¿Estás seguro de que quieres eliminar este comentario?')) {
       return;
@@ -190,7 +223,7 @@ const ProjectDashboard = ({ user }) => {
     }
   };
 
-  // Función para agregar comentario - CON NOTIFICACIÓN
+  // Función para agregar comentario
   const handleAddComment = async (e) => {
     e.preventDefault();
     if (!newComment.trim() || !selectedTicket) return;
@@ -238,12 +271,12 @@ const ProjectDashboard = ({ user }) => {
     }
   };
 
-  // NUEVA FUNCIÓN: Verificar si el usuario puede eliminar miembros
+  // Función para verificar si el usuario puede eliminar miembros
   const canRemoveMembers = () => {
     return projectOwner?.id === user.id;
   };
 
-  // NUEVA FUNCIÓN: Eliminar miembro del proyecto - CON NOTIFICACIÓN
+  // Función para eliminar miembro del proyecto
   const handleRemoveMember = async (memberId, memberName) => {
     if (!window.confirm(`¿Estás seguro de que quieres eliminar a ${memberName} del proyecto?`)) {
       return;
@@ -267,7 +300,7 @@ const ProjectDashboard = ({ user }) => {
     }
   };
 
-  // Función para cargar miembros
+  // Función para cargar miembros del proyecto
   const fetchProjectMembers = async () => {
     try {
       // Cargar miembros del proyecto
@@ -303,7 +336,7 @@ const ProjectDashboard = ({ user }) => {
     }
   };
 
-  // Función para obtener color del avatar
+  // Función para obtener color del avatar basado en el nombre
   const getUserColor = (userName) => {
     const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9'];
     if (!userName) return colors[0];
@@ -311,21 +344,24 @@ const ProjectDashboard = ({ user }) => {
     return colors[index];
   };
 
+  // Función para regresar al dashboard principal
   const handleBackToDashboard = () => {
     navigate('/dashboard');
   };
 
+  // Función para manejar clic en ticket
   const handleTicketClick = (ticket) => {
     setSelectedTicket(ticket);
     setShowTicketModal(true);
   };
 
+  // Función para crear ticket con prioridad específica
   const handleCreateTicket = async (priority) => {
     setNewTicket(prev => ({ ...prev, priority }));
     setShowCreateTicketModal(true);
   };
 
-  // Cambiar estado del ticket - CON NOTIFICACIÓN
+  // Función para cambiar estado del ticket
   const handleStatusChange = async (newStatus) => {
     if (!selectedTicket) return;
     
@@ -365,7 +401,7 @@ const ProjectDashboard = ({ user }) => {
     }
   };
 
-  // Eliminar ticket - CORREGIDA para borrar comentarios primero
+  // Función para eliminar ticket y sus comentarios
   const handleDeleteTicket = async () => {
     if (!selectedTicket || !window.confirm('¿Estás seguro de que quieres eliminar este ticket y todos sus comentarios?')) {
       return;
@@ -373,11 +409,28 @@ const ProjectDashboard = ({ user }) => {
 
     setActionLoading(true);
     try {
-      // PRIMERO: Borrar todos los comentarios del ticket
-      const commentsResponse = await fetch(`http://localhost:8000/api/comments?ticket.id=${selectedTicket.id}`);
-      if (commentsResponse.ok) {
-        const commentsData = await commentsResponse.json();
-        const ticketComments = commentsData.member || commentsData['hydra:member'] || [];
+      // PRIMERO: Obtener y borrar todos los comentarios del ticket
+      const allCommentsResponse = await fetch('http://localhost:8000/api/comments');
+      if (allCommentsResponse.ok) {
+        const allCommentsData = await allCommentsResponse.json();
+        const allComments = allCommentsData.member || allCommentsData['hydra:member'] || [];
+        
+        // Filtrar comentarios de este ticket
+        const ticketComments = allComments.filter(comment => {
+          const commentTicket = comment.ticket;
+          let commentTicketId = null;
+          
+          if (typeof commentTicket === 'string') {
+            const match = commentTicket.match(/\/api\/tickets\/(\d+)/);
+            if (match) {
+              commentTicketId = parseInt(match[1]);
+            }
+          } else if (commentTicket && commentTicket.id) {
+            commentTicketId = commentTicket.id;
+          }
+          
+          return commentTicketId === selectedTicket.id;
+        });
         
         console.log(`Encontrados ${ticketComments.length} comentarios para borrar`);
         
@@ -402,9 +455,7 @@ const ProjectDashboard = ({ user }) => {
 
       if (response.ok || response.status === 204) {
         setTickets(prev => prev.filter(ticket => ticket.id !== selectedTicket.id));
-        setShowTicketModal(false);
-        setSelectedTicket(null);
-        setComments([]); // Limpiar comentarios del estado
+        handleCloseTicketModal();
         showMessage('Ticket y comentarios eliminados correctamente!', 'success');
       } else {
         const errorText = await response.text();
@@ -419,6 +470,7 @@ const ProjectDashboard = ({ user }) => {
     }
   };
 
+  // Función para enviar nuevo ticket
   const handleSubmitNewTicket = async (e) => {
     e.preventDefault();
     if (!newTicket.title.trim()) return;
@@ -464,6 +516,7 @@ const ProjectDashboard = ({ user }) => {
     }
   };
 
+  // Función para invitar usuario al proyecto
   const handleInviteUser = async (e) => {
     e.preventDefault();
     if (!inviteEmail.trim()) return;
@@ -533,6 +586,7 @@ const ProjectDashboard = ({ user }) => {
     urgent: tickets.filter(ticket => ticket.priority === 'urgent')
   };
 
+  // Configuración de colores y estilos para prioridades
   const priorityConfig = {
     low: { 
       label: 'Baja', 
@@ -572,12 +626,14 @@ const ProjectDashboard = ({ user }) => {
     }
   };
 
+  // Configuración de estados de tickets
   const statusConfig = {
     open: { label: 'Abierto', class: 'secondary', color: '#6B7280' },
     in_progress: { label: 'En Progreso', class: 'primary', color: '#3B82F6' },
     closed: { label: 'Cerrado', class: 'success', color: '#10B981' }
   };
 
+  // Mostrar spinner de carga
   if (loading) return (
     <div className="d-flex justify-content-center align-items-center min-vh-100">
       <div className="spinner-border text-primary" role="status">
@@ -601,7 +657,7 @@ const ProjectDashboard = ({ user }) => {
         </div>
       )}
 
-      {/* Header */}
+      {/* Header del dashboard */}
       <header className="project-dashboard-header bg-dark text-white py-3">
         <div className="container-fluid">
           <div className="row align-items-center">
@@ -840,7 +896,7 @@ const ProjectDashboard = ({ user }) => {
         </div>
       </main>
 
-      {/* Modal para detalles del ticket CON COMENTARIOS */}
+      {/* Modal para detalles del ticket con comentarios */}
       {showTicketModal && selectedTicket && (
         <div className="modal show d-block project-dashboard-modal-overlay">
           <div className="modal-dialog modal-dialog-centered modal-lg">
@@ -850,7 +906,7 @@ const ProjectDashboard = ({ user }) => {
                 <button 
                   type="button" 
                   className="btn-close"
-                  onClick={() => setShowTicketModal(false)}
+                  onClick={handleCloseTicketModal}
                   disabled={actionLoading}
                 ></button>
               </div>
@@ -896,7 +952,7 @@ const ProjectDashboard = ({ user }) => {
                   </p>
                 </div>
 
-            
+                {/* Sección de comentarios */}
                 <div className="mb-4 border-top pt-3">
                   <h6 className="fw-bold mb-3">Comentarios ({comments.length})</h6>
                   
@@ -1050,7 +1106,7 @@ const ProjectDashboard = ({ user }) => {
                 <button 
                   type="button" 
                   className="btn btn-secondary"
-                  onClick={() => setShowTicketModal(false)}
+                  onClick={handleCloseTicketModal}
                   disabled={actionLoading}
                 >
                   Cerrar

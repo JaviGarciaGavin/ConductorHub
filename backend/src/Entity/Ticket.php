@@ -8,8 +8,22 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use ApiPlatform\Metadata\ApiResource;
+use ApiPlatform\Metadata\ApiFilter;
+use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
+use ApiPlatform\Doctrine\Orm\Filter\OrderFilter;
 
 #[ApiResource]
+#[ApiFilter(SearchFilter::class, properties: [
+    'project' => 'exact',
+    'userCreator' => 'exact',
+    'userAssigned' => 'exact',
+    'status' => 'exact',
+    'priority' => 'exact',
+    'category' => 'exact',
+    'title' => 'ipartial',
+    'description' => 'ipartial',
+])]
+#[ApiFilter(OrderFilter::class, properties: ['id', 'title', 'createdAt', 'updatedAt', 'priority'])]
 #[ORM\Entity(repositoryClass: TicketRepository::class)]
 class Ticket
 {
@@ -46,10 +60,7 @@ class Ticket
     #[ORM\ManyToOne(inversedBy: 'ticketsAssigned')]
     private ?User $userAssigned = null;
 
-    /**
-     * @var Collection<int, Comment>
-     */
-    #[ORM\OneToMany(targetEntity: Comment::class, mappedBy: 'ticket')]
+    #[ORM\OneToMany(mappedBy: 'ticket', targetEntity: Comment::class)]
     private Collection $comments;
 
     #[ORM\ManyToOne(inversedBy: 'tickets')]

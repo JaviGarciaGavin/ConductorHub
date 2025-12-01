@@ -6,8 +6,17 @@ use App\Repository\CommentRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use ApiPlatform\Metadata\ApiResource;
+use ApiPlatform\Metadata\ApiFilter;
+use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
+use ApiPlatform\Doctrine\Orm\Filter\OrderFilter;
 
 #[ApiResource]
+#[ApiFilter(SearchFilter::class, properties: [
+    'ticket' => 'exact',
+    'user' => 'exact',
+    'content' => 'ipartial',
+])]
+#[ApiFilter(OrderFilter::class, properties: ['id', 'createdAt'])]
 #[ORM\Entity(repositoryClass: CommentRepository::class)]
 class Comment
 {

@@ -8,8 +8,17 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use ApiPlatform\Metadata\ApiResource;
+use ApiPlatform\Metadata\ApiFilter;
+use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
+use ApiPlatform\Doctrine\Orm\Filter\OrderFilter;
 
 #[ApiResource]
+#[ApiFilter(SearchFilter::class, properties: [
+    'userOwner' => 'exact',
+    'name' => 'ipartial',
+    'description' => 'ipartial',
+])]
+#[ApiFilter(OrderFilter::class, properties: ['id', 'name', 'createdAt', 'updatedAt'])]
 #[ORM\Entity(repositoryClass: ProjectRepository::class)]
 class Project
 {
@@ -34,22 +43,13 @@ class Project
     #[ORM\JoinColumn(nullable: false)]
     private ?User $userOwner = null;
 
-    /**
-     * @var Collection<int, Ticket>
-     */
-    #[ORM\OneToMany(targetEntity: Ticket::class, mappedBy: 'project')]
+    #[ORM\OneToMany(mappedBy: 'project', targetEntity: Ticket::class)]
     private Collection $tickets;
 
-    /**
-     * @var Collection<int, ProjectMember>
-     */
-    #[ORM\OneToMany(targetEntity: ProjectMember::class, mappedBy: 'project')]
+    #[ORM\OneToMany(mappedBy: 'project', targetEntity: ProjectMember::class)]
     private Collection $projectMembers;
 
-    /**
-     * @var Collection<int, ProjectInvitation>
-     */
-    #[ORM\OneToMany(targetEntity: ProjectInvitation::class, mappedBy: 'project')]
+    #[ORM\OneToMany(mappedBy: 'project', targetEntity: ProjectInvitation::class)]
     private Collection $projectInvitations;
 
     public function __construct()
@@ -72,7 +72,6 @@ class Project
     public function setName(string $name): static
     {
         $this->name = $name;
-
         return $this;
     }
 
@@ -84,7 +83,6 @@ class Project
     public function setDescription(?string $description): static
     {
         $this->description = $description;
-
         return $this;
     }
 
@@ -96,7 +94,6 @@ class Project
     public function setCreatedAt(\DateTime $createdAt): static
     {
         $this->createdAt = $createdAt;
-
         return $this;
     }
 
@@ -108,7 +105,6 @@ class Project
     public function setUpdatedAt(\DateTime $updatedAt): static
     {
         $this->updatedAt = $updatedAt;
-
         return $this;
     }
 
@@ -120,13 +116,9 @@ class Project
     public function setUserOwner(?User $userOwner): static
     {
         $this->userOwner = $userOwner;
-
         return $this;
     }
 
-    /**
-     * @return Collection<int, Ticket>
-     */
     public function getTickets(): Collection
     {
         return $this->tickets;
@@ -138,25 +130,19 @@ class Project
             $this->tickets->add($ticket);
             $ticket->setProject($this);
         }
-
         return $this;
     }
 
     public function removeTicket(Ticket $ticket): static
     {
         if ($this->tickets->removeElement($ticket)) {
-            // set the owning side to null (unless already changed)
             if ($ticket->getProject() === $this) {
                 $ticket->setProject(null);
             }
         }
-
         return $this;
     }
 
-    /**
-     * @return Collection<int, ProjectMember>
-     */
     public function getProjectMembers(): Collection
     {
         return $this->projectMembers;
@@ -168,25 +154,19 @@ class Project
             $this->projectMembers->add($projectMember);
             $projectMember->setProject($this);
         }
-
         return $this;
     }
 
     public function removeProjectMember(ProjectMember $projectMember): static
     {
         if ($this->projectMembers->removeElement($projectMember)) {
-            // set the owning side to null (unless already changed)
             if ($projectMember->getProject() === $this) {
                 $projectMember->setProject(null);
             }
         }
-
         return $this;
     }
 
-    /**
-     * @return Collection<int, ProjectInvitation>
-     */
     public function getProjectInvitations(): Collection
     {
         return $this->projectInvitations;
@@ -198,19 +178,16 @@ class Project
             $this->projectInvitations->add($projectInvitation);
             $projectInvitation->setProject($this);
         }
-
         return $this;
     }
 
     public function removeProjectInvitation(ProjectInvitation $projectInvitation): static
     {
         if ($this->projectInvitations->removeElement($projectInvitation)) {
-            // set the owning side to null (unless already changed)
             if ($projectInvitation->getProject() === $this) {
                 $projectInvitation->setProject(null);
             }
         }
-
         return $this;
     }
 }

@@ -5,8 +5,20 @@ namespace App\Entity;
 use App\Repository\ProjectInvitationRepository;
 use Doctrine\ORM\Mapping as ORM;
 use ApiPlatform\Metadata\ApiResource;
+use ApiPlatform\Metadata\ApiFilter;
+use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
+use ApiPlatform\Doctrine\Orm\Filter\OrderFilter;
 
 #[ApiResource]
+#[ApiFilter(SearchFilter::class, properties: [
+    'project' => 'exact',
+    'invitedUser' => 'exact',
+    'inviter' => 'exact',
+    'status' => 'exact',
+    'invitedEmail' => 'ipartial',
+    'role' => 'exact',
+])]
+#[ApiFilter(OrderFilter::class, properties: ['id', 'expiresAt', 'acceptedAt'])]
 #[ORM\Entity(repositoryClass: ProjectInvitationRepository::class)]
 class ProjectInvitation
 {
