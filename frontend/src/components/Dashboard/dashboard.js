@@ -147,67 +147,137 @@ const Dashboard = ({ user, onLogout }) => {
     
     try {
       setLoading(true);
+      console.log('🔍 Buscando proyectos para usuario:', currentUser.id, currentUser.email);
       
-      // Cargar proyectos donde es dueño
-      const projectsResponse = await fetch('http://localhost:8000/api/projects', {
+      let userProjects = [];
+  
+      // 1. Cargar TODOS los proyectos
+      const allProjectsResponse = await fetch('http://localhost:8000/api/projects', {
         headers: { 'Accept': 'application/ld+json' }
       });
       
-      let ownerProjects = [];
-      if (projectsResponse.ok) {
-        const data = await projectsResponse.json();
-        const projectsArray = data.member || data['hydra:member'] || [];
-        ownerProjects = projectsArray.filter(project => {
-          const ownerIri = project.userOwner;
-          return typeof ownerIri === 'string' 
-            ? ownerIri.includes(`/api/users/${currentUser.id}`)
-            : (ownerIri && ownerIri.id === currentUser.id);
-        });
-      }
-
-      // Cargar proyectos donde es miembro
-      const membersResponse = await fetch(`http://localhost:8000/api/project_members?user=/api/users/${currentUser.id}`, {
-        headers: { 'Accept': 'application/ld+json' }
-      });
-      
-      let memberProjects = [];
-      if (membersResponse.ok) {
-        const membersData = await membersResponse.json();
-        const membersArray = membersData.member || membersData['hydra:member'] || [];
+      if (allProjectsResponse.ok) {
+        const data = await allProjectsResponse.json();
+        const allProjects = data.member || data['hydra:member'] || [];
         
-        // Cargar detalles de cada proyecto donde es miembro
-        memberProjects = await Promise.all(
-          membersArray.map(async (member) => {
-            try {
-              const projectResponse = await fetch(`http://localhost:8000${member.project}`);
-              if (projectResponse.ok) {
-                const projectData = await projectResponse.json();
-                return {
-                  ...projectData,
-                  userRole: member.role,
-                  isMember: true
-                };
-              }
-            } catch (error) {
-              console.error('Error cargando proyecto:', error);
+        // 2. Cargar TODOS los project_members (el filtro no funciona)
+        const membersResponse = await fetch('http://localhost:8000/api/project_members', {
+          headers: { 'Accept': 'application/ld+json' }
+        });
+        
+        if (membersResponse.ok) {
+          const membersData = await membersResponse.json();
+          const allMembers = membersData.member || membersData['hydra:member'] || [];
+          
+          console.log('🔍 DEBUG - Todos los project_members:', allMembers);
+          
+          // FILTRAR MANUALMENTE los miembros del usuario actual
+          const userMembers = allMembers.filter(member => {
+            const userIri = member.user;
+            let userId = null;
+            
+            if (typeof userIri === 'string') {
+              const match = userIri.match(/\/api\/users\/(\d+)/);
+              if (match) userId = parseInt(match[1]);
+            } else if (userIri && userIri['@id']) {
+              const match = userIri['@id'].match(/\/api\/users\/(\d+)/);
+              if (match) userId = parseInt(match[1]);
+            } else if (userIri && userIri.id) {
+              userId = userIri.id;
+            }
+            
+            const isUserMember = userId === currentUser.id;
+            if (isUserMember) {
+              console.log('✅ Miembro encontrado para usuario', currentUser.id, 'en proyecto:', member.project);
+            }
+            
+            return isUserMember;
+          });
+          
+          console.log('👥 Miembros del usuario actual:', userMembers.length);
+          console.log('👥 Miembros detalle:', userMembers);
+  
+          // Obtener IDs de proyectos donde es miembro
+          const memberProjectIds = userMembers.map(member => {
+            const projectIri = member.project;
+            if (typeof projectIri === 'string') {
+              const match = projectIri.match(/\/api\/projects\/(\d+)/);
+              return match ? parseInt(match[1]) : null;
+            } else if (projectIri && projectIri.id) {
+              return projectIri.id;
+            } else if (projectIri && projectIri['@id']) {
+              const match = projectIri['@id'].match(/\/api\/projects\/(\d+)/);
+              return match ? parseInt(match[1]) : null;
             }
             return null;
-          })
-        );
-        memberProjects = memberProjects.filter(project => project !== null);
+          }).filter(id => id !== null);
+  
+          console.log('👥 Proyectos donde es miembro:', memberProjectIds);
+  
+          // Filtrar proyectos: owner O member
+          userProjects = allProjects.filter(project => {
+            // Verificar si es owner
+            const ownerIri = project.userOwner;
+            let ownerId = null;
+            
+            if (typeof ownerIri === 'string') {
+              const match = ownerIri.match(/\/api\/users\/(\d+)/);
+              if (match) ownerId = parseInt(match[1]);
+            } else if (ownerIri && ownerIri.id) {
+              ownerId = ownerIri.id;
+            }
+            
+            const isOwner = ownerId === currentUser.id;
+            const isMember = memberProjectIds.includes(project.id);
+            
+            if (isOwner) {
+              console.log('✅ Usuario es OWNER del proyecto:', project.name);
+              return true;
+            }
+            
+            if (isMember) {
+              // Encontrar el role del member
+              const memberInfo = userMembers.find(member => {
+                const memberProjectIri = member.project;
+                let memberProjectId = null;
+                
+                if (typeof memberProjectIri === 'string') {
+                  const match = memberProjectIri.match(/\/api\/projects\/(\d+)/);
+                  if (match) memberProjectId = parseInt(match[1]);
+                } else if (memberProjectIri && memberProjectIri.id) {
+                  memberProjectId = memberProjectIri.id;
+                } else if (memberProjectIri && memberProjectIri['@id']) {
+                  const match = memberProjectIri['@id'].match(/\/api\/projects\/(\d+)/);
+                  if (match) memberProjectId = parseInt(match[1]);
+                }
+                
+                return memberProjectId === project.id;
+              });
+              
+              console.log('✅ Usuario es MIEMBRO del proyecto:', project.name, 'Rol:', memberInfo?.role);
+              
+              // Añadir información del role al proyecto
+              project.userRole = memberInfo?.role;
+              project.isMember = true;
+              return true;
+            }
+            
+            return false;
+          });
+        }
       }
-
-      // Combinar proyectos (eliminar duplicados)
-      const allProjects = [...ownerProjects, ...memberProjects];
-      const uniqueProjects = allProjects.filter((project, index, self) => 
-        index === self.findIndex(p => p.id === project.id)
-      );
-
-      setProjects(uniqueProjects);
-      await fetchAllTicketsAndDistribute(uniqueProjects);
+  
+      console.log('🎯 Proyectos totales para el usuario:', userProjects.length);
+      userProjects.forEach(project => {
+        const role = project.isMember ? project.userRole : 'Owner';
+        console.log('📋 Proyecto:', project.name, 'ID:', project.id, 'Rol:', role);
+      });
+  
+      setProjects(userProjects);
+      await fetchAllTicketsAndDistribute(userProjects);
       
     } catch (error) {
-      console.error('Error:', error);
+      console.error('❌ Error cargando proyectos:', error);
       setProjects([]);
     } finally {
       setLoading(false);
@@ -461,8 +531,9 @@ const Dashboard = ({ user, onLogout }) => {
                   <div className="project-header">
                     <h3>{project.name}</h3>
                     <div className="project-role-badge">
-                      <span className={`role-badge ${isOwner ? 'Dueño' : 'Miembro'}`}>
-                        {isOwner ? '👑 Dueño' : `👤 ${project.userRole || 'Miembro'}`}
+                      <span className={`role-badge ${isOwner ? 'Dueño' : (project.userRole === 'admin' ? 'Admin' : 'Miembro')}`}>
+                        <span className={`badge-icon ${isOwner ? 'owner' : (project.userRole === 'admin' ? 'admin' : 'member')}`}></span>
+                        {isOwner ? 'Dueño' : (project.userRole === 'admin' ? 'Admin' : 'Miembro')}
                       </span>
                     </div>
                     <div className="tickets-counter">

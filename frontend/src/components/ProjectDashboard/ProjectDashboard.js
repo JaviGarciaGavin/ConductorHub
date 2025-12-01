@@ -137,6 +137,43 @@ const ProjectDashboard = ({ user }) => {
     }
   };
 
+  // NUEVA FUNCIÓN: Verificar si el usuario puede borrar un comentario
+  const canDeleteComment = (comment) => {
+    if (!comment || !user) return false;
+    
+    // El usuario puede borrar si es el autor del comentario
+    const isCommentAuthor = comment.author?.id === user.id;
+    
+    // El usuario puede borrar si es el dueño del proyecto
+    const isProjectOwner = projectOwner?.id === user.id;
+    
+    return isCommentAuthor || isProjectOwner;
+  };
+
+  // NUEVA FUNCIÓN: Borrar comentario
+  const handleDeleteComment = async (commentId) => {
+    if (!window.confirm('¿Estás seguro de que quieres eliminar este comentario?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://localhost:8000/api/comments/${commentId}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok || response.status === 204) {
+        // Eliminar el comentario del estado local
+        setComments(prev => prev.filter(comment => comment.id !== commentId));
+        alert('Comentario eliminado correctamente');
+      } else {
+        alert('Error al eliminar el comentario');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Error de conexión al eliminar el comentario');
+    }
+  };
+
   // Función para agregar comentario
   const handleAddComment = async (e) => {
     e.preventDefault();
@@ -184,7 +221,36 @@ const ProjectDashboard = ({ user }) => {
     }
   };
 
-  // NUEVA FUNCIÓN MEJORADA para cargar miembros
+  // NUEVA FUNCIÓN: Verificar si el usuario puede eliminar miembros
+  const canRemoveMembers = () => {
+    return projectOwner?.id === user.id;
+  };
+
+  // NUEVA FUNCIÓN: Eliminar miembro del proyecto
+  const handleRemoveMember = async (memberId, memberName) => {
+    if (!window.confirm(`¿Estás seguro de que quieres eliminar a ${memberName} del proyecto?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://localhost:8000/api/project_members/${memberId}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok || response.status === 204) {
+        // Eliminar el miembro del estado local
+        setProjectMembers(prev => prev.filter(member => member.id !== memberId));
+        alert(`${memberName} ha sido eliminado del proyecto`);
+      } else {
+        alert('Error al eliminar el miembro');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Error de conexión');
+    }
+  };
+
+  // Función para cargar miembros
   const fetchProjectMembers = async () => {
     try {
       // Cargar miembros del proyecto
@@ -241,7 +307,7 @@ const ProjectDashboard = ({ user }) => {
     setShowCreateTicketModal(true);
   };
 
-  //Cambiar estado del ticket
+  // Cambiar estado del ticket
   const handleStatusChange = async (newStatus) => {
     if (!selectedTicket) return;
     
@@ -624,7 +690,7 @@ const ProjectDashboard = ({ user }) => {
                 <div className="mb-3">
                   {/* Mostrar dueño primero */}
                   {projectOwner && (
-                    <div key="owner" className="project-dashboard-member-card d-flex align-items-center mb-2 p-2 rounded-3 owner-member">
+                    <div key="owner" className="project-dashboard-member-card d-flex align-items-center mb-2 p-2 rounded-3 owner-member position-relative">
                       <div 
                         className="project-dashboard-member-avatar rounded-circle d-flex align-items-center justify-content-center me-3"
                         style={{ backgroundColor: getUserColor(projectOwner.name) }}
@@ -651,7 +717,7 @@ const ProjectDashboard = ({ user }) => {
                   {projectMembers
                     .filter(member => member.userDetails && member.userDetails.id !== projectOwner?.id)
                     .map(member => (
-                      <div key={member.id} className="project-dashboard-member-card d-flex align-items-center mb-2 p-2 rounded-3">
+                      <div key={member.id} className="project-dashboard-member-card d-flex align-items-center mb-2 p-2 rounded-3 position-relative">
                         <div 
                           className="project-dashboard-member-avatar rounded-circle d-flex align-items-center justify-content-center me-3"
                           style={{ backgroundColor: getUserColor(member.userDetails?.name) }}
@@ -676,6 +742,31 @@ const ProjectDashboard = ({ user }) => {
                             </span>
                           </div>
                         </div>
+                        
+                        {/* Botón para eliminar miembro - solo visible para el owner */}
+                        {canRemoveMembers() && member.userDetails?.id !== user.id && (
+                          <button
+                            className="btn btn-outline-danger btn-sm member-delete-btn"
+                            onClick={() => handleRemoveMember(member.id, member.userDetails?.name)}
+                            title="Eliminar miembro del proyecto"
+                            style={{
+                              position: 'absolute',
+                              right: '12px',
+                              top: '50%',
+                              transform: 'translateY(-50%)',
+                              width: '32px',
+                              height: '32px',
+                              padding: '0',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '16px',
+                              fontWeight: 'bold'
+                            }}
+                          >
+                            ×
+                          </button>
+                        )}
                       </div>
                     ))
                   }
@@ -757,16 +848,18 @@ const ProjectDashboard = ({ user }) => {
                   </p>
                 </div>
 
-                {/* SECCIÓN DE COMENTARIOS */}
+            
                 <div className="mb-4 border-top pt-3">
-                  <h6 className="fw-bold mb-3">💬 Comentarios ({comments.length})</h6>
+                  <h6 className="fw-bold mb-3">Comentarios ({comments.length})</h6>
                   
                   {/* Lista de comentarios */}
                   <div className="comments-section mb-3" style={{ maxHeight: '300px', overflowY: 'auto' }}>
                     {comments.length > 0 ? (
                       comments.map(comment => (
-                        <div key={comment.id} className="comment-item mb-3 p-3 bg-light rounded">
-                          <div className="d-flex justify-content-between align-items-start mb-2">
+                        // QUITÉ LA CLASE "bg-light" DE ESTA LÍNEA ↓
+                        <div key={comment.id} className="comment-item mb-3 p-3 rounded position-relative">
+                          {/* Cabecera del comentario - Layout mejorado */}
+                          <div className="comment-header d-flex justify-content-between align-items-start mb-2">
                             <div className="d-flex align-items-center">
                               <div 
                                 className="comment-avatar rounded-circle d-flex align-items-center justify-content-center me-2"
@@ -782,17 +875,47 @@ const ProjectDashboard = ({ user }) => {
                                 {comment.author?.name?.charAt(0) || 'U'}
                               </div>
                               <div>
-                                <strong className="d-block">{comment.author?.name || 'Usuario'}</strong>
+                                <div className="d-flex align-items-center gap-2">
+                                  <strong className="small">{comment.author?.name || 'Usuario'}</strong>
+                                  {comment.author?.id === user.id && (
+                                    <span className="badge bg-info">Tú</span>
+                                  )}
+                                </div>
                                 <small className="text-muted">
-                                  {new Date(comment.createdAt).toLocaleString()}
+                                  {new Date(comment.createdAt).toLocaleString('es-ES', {
+                                    day: '2-digit',
+                                    month: '2-digit',
+                                    year: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  })}
                                 </small>
                               </div>
                             </div>
-                            {comment.author?.id === user.id && (
-                              <span className="badge bg-info">Tú</span>
+                            
+                            {/* Botón de eliminar comentario - posicionado a la derecha */}
+                            {canDeleteComment(comment) && (
+                              <button
+                                className="btn btn-outline-danger btn-sm comment-delete-btn"
+                                onClick={() => handleDeleteComment(comment.id)}
+                                title="Eliminar comentario"
+                                style={{
+                                  width: '28px',
+                                  height: '28px',
+                                  padding: '0',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: '0.8rem'
+                                }}
+                              >
+                                ×
+                              </button>
                             )}
                           </div>
-                          <p className="mb-0">{comment.content}</p>
+                          
+                          {/* Contenido del comentario */}
+                          <p className="mb-0 mt-2 small">{comment.content}</p>
                         </div>
                       ))
                     ) : (

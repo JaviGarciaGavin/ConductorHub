@@ -30,7 +30,7 @@
   font-size: 1.1rem;
 }
 
-/* Columnas de prioridad con colores SUPER vibrantes */
+/* Columnas de prioridad */
 .project-dashboard-priority-column {
   backdrop-filter: blur(15px);
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.25);
@@ -81,6 +81,8 @@
   border: 1px solid rgba(100, 116, 139, 0.4);
   border-radius: 14px !important;
   transition: all 0.3s ease;
+  position: relative;
+  padding-right: 50px; /* Espacio para el botón eliminar */
 }
 
 .project-dashboard-member-card:hover {
@@ -133,7 +135,7 @@
   color: #E2E8F0 !important;
 }
 
-/* SECCIÓN DE COMENTARIOS MEJORADA */
+/* SECCIÓN DE COMENTARIOS SIMPLIFICADA */
 .comments-section {
   max-height: 300px;
   overflow-y: auto;
@@ -159,18 +161,16 @@
   background: linear-gradient(135deg, #2563EB, #3B82F6);
 }
 
+/* PANELES DE COMENTARIOS SIMPLIFICADOS - SIN HOVER NI ANIMACIONES */
 .comment-item {
-  background: linear-gradient(135deg, rgba(51, 65, 85, 0.8), rgba(61, 75, 95, 0.8)) !important;
+  background: rgba(41, 52, 72, 0.7) !important;
   border: 1px solid rgba(100, 116, 139, 0.3);
-  border-radius: 14px !important;
-  transition: all 0.3s ease;
+  border-radius: 10px !important;
+  margin-bottom: 12px;
+  padding: 14px;
   position: relative;
-}
-
-.comment-item:hover {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(96, 165, 250, 0.05)) !important;
-  border-color: rgba(59, 130, 246, 0.4);
-  transform: translateY(-1px);
+  padding-right: 50px;
+  /* Sin transiciones ni hovers */
 }
 
 .comment-avatar {
@@ -178,37 +178,41 @@
   height: 32px;
   font-size: 0.8rem;
   font-weight: bold;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-/* Botón eliminar comentario */
+/* BOTÓN ELIMINAR COMENTARIO - SIMPLIFICADO */
 .comment-delete-btn {
   background: rgba(239, 68, 68, 0.1) !important;
   border: 1px solid rgba(239, 68, 68, 0.3) !important;
   color: #EF4444 !important;
-  border-radius: 8px;
+  border-radius: 6px;
   width: 28px;
   height: 28px;
-  display: flex;
+  display: flex !important;
   align-items: center;
   justify-content: center;
-  font-size: 0.8rem;
-  transition: all 0.3s ease;
-  opacity: 0;
-}
-
-.comment-item:hover .comment-delete-btn {
-  opacity: 1;
+  font-size: 14px !important;
+  font-weight: bold !important;
+  padding: 0 !important;
+  line-height: 1 !important;
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  z-index: 2;
+  /* Sin transiciones ni hovers */
 }
 
 .comment-delete-btn:hover {
-  background: rgba(239, 68, 68, 0.2) !important;
-  border-color: rgba(239, 68, 68, 0.5) !important;
-  transform: scale(1.1);
+  background: rgba(239, 68, 68, 0.15) !important;
+  border-color: rgba(239, 68, 68, 0.4) !important;
 }
 
-/* Header del comentario con botón de eliminar */
+/* Header del comentario */
 .comment-header {
   display: flex;
   justify-content: space-between;
@@ -220,6 +224,7 @@
   display: flex;
   align-items: center;
   flex: 1;
+  gap: 8px;
 }
 
 /* Mejorar legibilidad */
@@ -242,10 +247,9 @@
   border-color: #3B82F6 !important;
   color: #E2E8F0 !important;
   box-shadow: 0 0 0 0.3rem rgba(59, 130, 246, 0.25) !important;
-  transform: translateY(-1px);
 }
 
-/* Badges más vibrantes */
+/* Badges */
 .project-dashboard .badge {
   font-weight: 700;
   border-radius: 10px;
@@ -263,6 +267,79 @@
   transform: translateY(-1px);
 }
 
+/* Botón eliminar ticket */
+.project-dashboard .btn-outline-danger {
+  border: 2px solid rgba(239, 68, 68, 0.5) !important;
+  color: #EF4444 !important;
+  transition: all 0.3s ease;
+}
+
+.project-dashboard .btn-outline-danger:hover {
+  background: rgba(239, 68, 68, 0.1) !important;
+  border-color: rgba(239, 68, 68, 0.8) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+/* Botón eliminar miembro - SIMPLIFICADO */
+.member-delete-btn {
+  background: rgba(239, 68, 68, 0.1) !important;
+  border: 1px solid rgba(239, 68, 68, 0.3) !important;
+  color: #EF4444 !important;
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px !important;
+  font-weight: bold !important;
+  padding: 0 !important;
+  line-height: 1 !important;
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  /* Sin transiciones ni hovers */
+}
+
+.member-delete-btn:hover {
+  background: rgba(239, 68, 68, 0.15) !important;
+  border-color: rgba(239, 68, 68, 0.4) !important;
+}
+
+/* Estilos para miembros */
+.owner-member {
+  background: rgba(255, 215, 0, 0.1) !important;
+  border: 1px solid rgba(255, 215, 0, 0.3) !important;
+}
+
+.owner-crown {
+  font-size: 0.9rem;
+}
+
+/* Sin comentarios */
+.no-comments {
+  text-align: center;
+  color: #94A3B8;
+  font-style: italic;
+  padding: 20px;
+}
+
+/* Asegurar que los botones de eliminar sean visibles */
+.comment-delete-btn,
+.member-delete-btn {
+  visibility: visible !important;
+  display: flex !important;
+  cursor: pointer;
+}
+
+/* Estados de carga */
+.project-dashboard .spinner-border {
+  border-width: 2px;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .project-dashboard-priority-column {
@@ -277,50 +354,178 @@
     margin: 1rem;
   }
   
-  .comment-delete-btn {
-    opacity: 1; /* Mostrar siempre en móvil */
+  .comment-item,
+  .project-dashboard-member-card {
+    padding-right: 45px;
+  }
+  
+  .comment-delete-btn,
+  .member-delete-btn {
+    width: 26px;
+    height: 26px;
+    right: 10px;
   }
 }
 
-/* Animaciones de carga */
-@keyframes glow {
-  0% { box-shadow: 0 0 5px currentColor; }
-  50% { box-shadow: 0 0 20px currentColor; }
-  100% { box-shadow: 0 0 5px currentColor; }
+/* Mejoras para los SVGs dentro de botones */
+.comment-delete-btn svg,
+.member-delete-btn svg {
+  width: 14px;
+  height: 14px;
 }
 
-.project-dashboard-priority-column {
-  animation: glow 3s ease-in-out infinite;
+/* Asegurar que los botones tengan el pointer correcto */
+.comment-delete-btn:not(:disabled),
+.member-delete-btn:not(:disabled),
+.project-dashboard-ticket-card {
+  cursor: pointer;
 }
 
-/* Estilos para miembros */
-.owner-member {
-  background: rgba(255, 215, 0, 0.1) !important;
-  border: 1px solid rgba(255, 215, 0, 0.3) !important;
+/* Focus states para accesibilidad */
+.comment-delete-btn:focus,
+.member-delete-btn:focus {
+  outline: 2px solid rgba(59, 130, 246, 0.5);
+  outline-offset: 2px;
 }
 
-.owner-crown {
+/* PANELES DE COMENTARIOS - CORREGIDOS (MÁS OSCUROS) */
+.comments-section {
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+/* Scrollbar personalizado para comentarios */
+.comments-section::-webkit-scrollbar {
+  width: 6px;
+}
+
+.comments-section::-webkit-scrollbar-track {
+  background: rgba(30, 41, 59, 0.5);
+  border-radius: 10px;
+}
+
+.comments-section::-webkit-scrollbar-thumb {
+  background: rgba(71, 85, 105, 0.8);
+  border-radius: 10px;
+}
+
+.comments-section::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.8);
+}
+
+/* COMENTARIOS CON FONDO OSCURO - CORREGIDO */
+.comment-item {
+  background: rgba(15, 23, 42, 0.8) !important;
+  border: 1px solid rgba(71, 85, 105, 0.4) !important;
+  border-radius: 10px !important;
+  margin-bottom: 12px;
+  padding: 14px;
+  position: relative;
+  padding-right: 50px;
+  /* Sin transiciones ni hovers */
+}
+
+.comment-avatar {
+  width: 32px;
+  height: 32px;
+  font-size: 0.8rem;
+  font-weight: bold;
+  background: rgba(71, 85, 105, 0.8) !important;
+  color: white;
+  border: 1px solid rgba(100, 116, 139, 0.4);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* BOTÓN ELIMINAR COMENTARIO */
+.comment-delete-btn {
+  background: rgba(239, 68, 68, 0.15) !important;
+  border: 1px solid rgba(239, 68, 68, 0.4) !important;
+  color: #EF4444 !important;
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px !important;
+  font-weight: bold !important;
+  padding: 0 !important;
+  line-height: 1 !important;
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  z-index: 2;
+}
+
+.comment-delete-btn:hover {
+  background: rgba(239, 68, 68, 0.25) !important;
+  border-color: rgba(239, 68, 68, 0.6) !important;
+}
+
+/* Header del comentario */
+.comment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.comment-user-info {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  gap: 8px;
+}
+
+/* Texto de comentarios */
+.comment-item p {
+  color: #E2E8F0 !important;
+  margin: 0;
   font-size: 0.9rem;
+  line-height: 1.4;
 }
 
-/* Indicador de rol admin */
-.admin-badge {
-  background: linear-gradient(135deg, #F59E0B, #D97706) !important;
+.comment-item strong {
+  color: #F1F5F9 !important;
+}
+
+.comment-item .text-muted {
+  color: #94A3B8 !important;
+}
+
+/* ... (el resto del CSS se mantiene igual) ... */
+
+/* Asegurar que el texto dentro de los comentarios sea legible */
+.comment-item .badge {
   color: white !important;
 }
 
-/* Estados de loading */
-.loading-comment {
-  opacity: 0.6;
-  pointer-events: none;
+/* Estados de los comentarios */
+.no-comments {
+  text-align: center;
+  color: #64748B !important;
+  font-style: italic;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.6) !important;
+  border-radius: 10px;
+  border: 1px dashed rgba(100, 116, 139, 0.4);
 }
 
-/* Transiciones suaves */
-.comment-item {
-  transition: all 0.3s ease;
-}
-
-.comment-item.fade-out {
-  opacity: 0;
-  transform: translateX(-10px);
+/* Responsive para comentarios */
+@media (max-width: 768px) {
+  .comment-item {
+    padding: 12px;
+    padding-right: 45px;
+  }
+  
+  .comment-delete-btn {
+    width: 26px;
+    height: 26px;
+    right: 10px;
+    top: 10px;
+  }
 }
